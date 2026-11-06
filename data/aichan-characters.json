@@ -1,0 +1,87 @@
+[
+ {
+  "key": "01_智谱GLM娘_阔耳狐娘",
+  "角色名": "智谱 GLM 娘（阔耳狐娘）",
+  "品牌": "智谱 / GLM"
+ },
+ {
+  "key": "02_GPT娘_白龙娘",
+  "角色名": "GPT 娘（白龙娘）",
+  "品牌": "OpenAI"
+ },
+ {
+  "key": "03_DeepSeek娘_鲸鱼娘",
+  "角色名": "DeepSeek 娘（鲸鱼娘）",
+  "品牌": "DeepSeek"
+ },
+ {
+  "key": "04_文心一言娘",
+  "角色名": "文心一言娘（蓝发轮椅少女）",
+  "品牌": "百度"
+ },
+ {
+  "key": "05_通义千问娘_Qwen",
+  "角色名": "通义千问娘 Qwen",
+  "品牌": "阿里"
+ },
+ {
+  "key": "06_Kimi娘_Moonshot",
+  "角色名": "Kimi 娘",
+  "品牌": "月之暗面 Moonshot"
+ },
+ {
+  "key": "07_豆包Seed娘",
+  "角色名": "豆包 Seed 娘（紫发高马尾）",
+  "品牌": "字节跳动"
+ },
+ {
+  "key": "08_MiniMax娘_海螺AI",
+  "角色名": "MiniMax 娘（海螺 AI）",
+  "品牌": "MiniMax"
+ },
+ {
+  "key": "09_Grok娘_xAI",
+  "角色名": "Grok 娘（金发吸血鬼）",
+  "品牌": "xAI"
+ },
+ {
+  "key": "10_Gemini娘",
+  "角色名": "Gemini 娘（四角星猫耳）",
+  "品牌": "Google"
+ },
+ {
+  "key": "11_Claude娘_Anthropic",
+  "角色名": "Claude 娘（橘发与菊花纹）",
+  "品牌": "Anthropic"
+ },
+ {
+  "key": "12_DeepSeek娘_Q版冬装",
+  "角色名": "DeepSeek 娘（Q 版冬装）",
+  "品牌": "DeepSeek"
+ },
+ {
+  "key": "13_GPT娘_Q版白紫龙娘",
+  "角色名": "GPT 娘（Q 版白紫龙娘）",
+  "品牌": "OpenAI"
+ },
+ {
+  "key": "14_DeepSeek娘_Claude工牌工作服",
+  "角色名": "DeepSeek 娘（Claude 工牌工作服）",
+  "品牌": "DeepSeek"
+ },
+ {
+  "key": "15_MiMo兔娘_甶丶_机能外套",
+  "角色名": "MiMo 兔娘（@甶丶 · 机能外套）",
+  "品牌": "小米 / MiMo"
+ },
+ {
+  "key": "16_MiMo兔娘_Immyxxr_女仆装",
+  "角色名": "MiMo 兔娘（@Immyxxr · 女仆装）",
+  "品牌": "小米 / MiMo"
+ },
+ {
+  "key": "17_LongCat娘_美团龙猫_现代外套",
+  "角色名": "LongCat 娘（美团龙猫 · 现代外套）",
+  "品牌": "美团 / LongCat"
+ }
+]
