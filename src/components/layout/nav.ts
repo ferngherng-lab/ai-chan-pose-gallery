@@ -20,6 +20,7 @@ export interface NavItem {
 export interface NavGroup {
   label: string
   items: NavItem[]
+  id?: string
 }
 
 export const navGroups: NavGroup[] = [
@@ -31,11 +32,19 @@ export const navGroups: NavGroup[] = [
     ],
   },
   {
-    label: '三大参考图库',
+    label: '优先参考（AI 娘 × 姿势）',
     items: [
       { title: '动作姿势库', to: '/poses', icon: PersonStandingIcon, badge: '1,439' },
       { title: 'AI 娘角色', to: '/characters', icon: UserRoundIcon, badge: '198' },
       { title: '服装·配饰', to: '/outfits', icon: ShirtIcon, badge: '198' },
+    ],
+  },
+  {
+    label: '原版参考图库',
+    id: 'legacy',
+    items: [
+      { title: '人像库', to: '/portraits', icon: UserRoundIcon, badge: '1,499' },
+      { title: '服装库', to: '/costumes', icon: ShirtIcon, badge: '3,224' },
     ],
   },
   {

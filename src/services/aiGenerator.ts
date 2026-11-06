@@ -224,7 +224,7 @@ export function buildRecipePrompt(recipe: RecipeState, stylePreset = 'realistic'
   }
 
   if (clauses.length === 0) {
-    return '请先选择人像/服装/姿势或上传附加参考图。'
+    return '请先选择角色/服装/姿势或上传附加参考图。'
   }
 
   const lines = [

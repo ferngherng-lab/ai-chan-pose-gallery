@@ -19,7 +19,7 @@ import { activeNavTo, navGroups } from './nav'
 export function AppSidebar() {
   const pathname = useLocation({ select: (l) => l.pathname })
   const active = activeNavTo(pathname)
-  const { recipe } = useStudio()
+  const { recipe, showLegacyLibraries } = useStudio()
   const count = [recipe.portrait, recipe.costume, recipe.pose].filter(Boolean).length
 
   return (
@@ -43,7 +43,7 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        {navGroups.map((group) => (
+        {navGroups.filter((g) => g.id !== 'legacy' || showLegacyLibraries).map((group) => (
           <SidebarGroup key={group.label}>
             <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
             <SidebarMenu>

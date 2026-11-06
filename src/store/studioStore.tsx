@@ -54,6 +54,7 @@ const HISTORY_KEY = 'pose_atlas_history_v3'
 const TASK_KEY = 'pose_atlas_active_task_v1'
 type ActiveTask = { task?: ComfyTaskHandle; prompt: string; summary: string; unknown?: boolean; snapshot?: GenerationSnapshot }
 const SAFE_MODE_KEY = 'pose_atlas_safe_mode_v1'
+const LEGACY_LIBRARIES_KEY = 'pose_atlas_legacy_libraries_v1'
 
 const COMFY_CONFIG_VERSION = 3
 
@@ -209,6 +210,8 @@ interface StudioContextValue {
   safeMode: boolean
   toggleSafeMode: () => void
   requestUnlockNsfw: (onUnlocked?: () => void) => void
+  showLegacyLibraries: boolean
+  toggleLegacyLibraries: () => void
   poseDepthMode: boolean
   setPoseDepthMode: (val: boolean) => void
   toggleRecipePoseDepth: () => void
@@ -291,6 +294,14 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   const [safeMode, setSafeMode] = useState<boolean>(() => {
     try {
       const raw = localStorage.getItem(SAFE_MODE_KEY)
+      return raw === null ? true : raw !== 'false'
+    } catch {
+      return true
+    }
+  })
+  const [showLegacyLibraries, setShowLegacyLibraries] = useState<boolean>(() => {
+    try {
+      const raw = localStorage.getItem(LEGACY_LIBRARIES_KEY)
       return raw === null ? true : raw !== 'false'
     } catch {
       return true
@@ -385,6 +396,12 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     } catch {}
   }, [safeMode])
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(LEGACY_LIBRARIES_KEY, String(showLegacyLibraries))
+    } catch {}
+  }, [showLegacyLibraries])
+
   const requestUnlockNsfw = (onUnlocked?: () => void) => {
     if (!safeMode) {
       onUnlocked?.()
@@ -410,6 +427,12 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       setSafeMode(true)
       toast.success('已开启安全模式（已隐藏 18+ 敏感分类）')
     }
+  }
+
+  const toggleLegacyLibraries = () => {
+    const next = !showLegacyLibraries
+    setShowLegacyLibraries(next)
+    toast.success(next ? '已显示原版人像/服装库' : '已隐藏原版人像/服装库')
   }
 
   const setPortrait = (portrait: PortraitItem | null) => setRecipe((r) => ({ ...r, portrait }))
@@ -731,6 +754,8 @@ export function StudioProvider({ children }: { children: ReactNode }) {
         safeMode,
         toggleSafeMode,
         requestUnlockNsfw,
+        showLegacyLibraries,
+        toggleLegacyLibraries,
         poseDepthMode,
         setPoseDepthMode,
         toggleRecipePoseDepth,

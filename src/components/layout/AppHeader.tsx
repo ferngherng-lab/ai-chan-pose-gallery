@@ -1,5 +1,5 @@
 import { Link, useMatches } from '@tanstack/react-router'
-import { DicesIcon, ShieldCheckIcon, SparklesIcon } from 'lucide-react'
+import { DicesIcon, LibraryIcon, ShieldCheckIcon, SparklesIcon } from 'lucide-react'
 import { Fragment } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { costumesQuery, portraitsQuery, posesQuery } from '@/api/gallery'
@@ -18,7 +18,7 @@ import { SidebarTrigger } from '@/components/ui/sidebar'
 import { useStudio } from '@/store/studioStore'
 
 export function AppHeader() {
-  const { recipe, randomizeRecipe, safeMode, toggleSafeMode } = useStudio()
+  const { recipe, randomizeRecipe, safeMode, toggleSafeMode, showLegacyLibraries, toggleLegacyLibraries } = useStudio()
   const qc = useQueryClient()
   const crumbs = useMatches({
     select: (matches) =>
@@ -78,6 +78,20 @@ export function AppHeader() {
           <ShieldCheckIcon className="size-3.5" />
           <span className="hidden @2xl/header:inline">{safeMode ? '安全模式 (SFW)' : '18+ 完整模式'}</span>
           <span className="@2xl/header:hidden">{safeMode ? 'SFW' : '18+'}</span>
+        </Button>
+        <Button
+          variant={showLegacyLibraries ? 'outline' : 'secondary'}
+          size="sm"
+          onClick={toggleLegacyLibraries}
+          title={showLegacyLibraries ? '原版人像/服装库已显示，点击隐藏' : '原版人像/服装库已隐藏，点击显示'}
+          className={
+            showLegacyLibraries
+              ? 'border-sky-500/30 bg-sky-500/5 text-sky-700 hover:bg-sky-500/10 dark:text-sky-400'
+              : 'border-zinc-500/30 bg-zinc-500/10 text-zinc-600 hover:bg-zinc-500/20 dark:text-zinc-400'
+          }
+        >
+          <LibraryIcon className="size-3.5" />
+          <span className="hidden @2xl/header:inline">{showLegacyLibraries ? '原版图库' : '隐藏原版'}</span>
         </Button>
         <Button variant="outline" size="sm" onClick={handleRandom} className="hidden @3xl/header:inline-flex">
           <DicesIcon className="size-3.5" />
