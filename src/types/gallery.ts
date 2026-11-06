@@ -80,10 +80,36 @@ export interface ExtraReferenceImage {
   url: string
 }
 
+// ---- 子欄位（進階層）：useSubfields 開關控制，預設關閉（退出策略）----
+export type AssetRegion = '形象' | '服飾'
+export type CostumeZone = '上裝' | '下裝' | '其他'
+export type CostumeZones = CostumeZone[]
+
+export interface CostumePiece {
+  item: CostumeItem
+  region: AssetRegion
+  zones: CostumeZones
+}
+
+export interface CostumeBlock {
+  top: CostumePiece[]
+  bottom: CostumePiece[]
+  extras: CostumePiece[]
+}
+
+export interface PortraitBlock {
+  base: PortraitItem | null
+  expression: PortraitItem | null
+  hair: CostumeItem[]
+}
+
 export interface RecipeState {
   portrait: PortraitItem | null
   costume: CostumeItem | null
   pose: PoseItem | null
+  /** 子欄位精細化（useSubfields 開關 ON 時才參與生成） */
+  advancedPortrait?: PortraitBlock | null
+  advancedCostume?: CostumeBlock | null
   workflowImages?: Record<string, ExtraReferenceImage>
   workflowImagesIdentity?: string
   extraImages?: ExtraReferenceImage[]

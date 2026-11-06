@@ -11,7 +11,7 @@ import { useStudio } from '@/store/studioStore'
 
 export function RecipeDock() {
   const { pathname } = useLocation()
-  const { recipe, apiConfig, isGenerating, setPortrait, setCostume, setPose, toggleRecipePoseDepth, clearRecipe, randomizeRecipe } = useStudio()
+  const { recipe, apiConfig, isGenerating, useSubfields, setPortrait, setCostume, setPose, toggleRecipePoseDepth, clearRecipe, randomizeRecipe } = useStudio()
   const qc = useQueryClient()
   const extraCount = (recipe.extraImages || []).length
   const workflowImages = apiConfig.activeProvider === 'comfyui' && recipe.workflowImagesIdentity === workflowIdentity(apiConfig.comfyuiParams.workflowJson) ? Object.values(recipe.workflowImages || {}) : []
@@ -36,7 +36,7 @@ export function RecipeDock() {
   }
 
   const handleCopyPrompt = async () => {
-    const text = buildRecipePrompt(recipe, apiConfig.stylePreset, workflowImages)
+    const text = buildRecipePrompt(recipe, apiConfig.stylePreset, workflowImages, useSubfields)
     await navigator.clipboard.writeText(text)
     toast.success('已复制提示词')
   }

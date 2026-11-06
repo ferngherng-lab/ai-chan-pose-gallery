@@ -22,7 +22,9 @@ import {
   COMFYUI_WORKFLOW_TEMPLATES,
   DEFAULT_COMFY_PRESET,
   generateCharacterImage,
+  hasAdvancedBlocks,
   resumeComfyTask,
+  resolveSubfieldRecipe,
   ComfyTaskError,
   ComfySubmissionRejectedError,
   type ComfyTaskHandle,
@@ -33,6 +35,7 @@ import {
 import type {
   ApiConfig,
   ComfyUiParams,
+  CostumeBlock,
   CostumeItem,
   DoubaoParams,
   ExtraReferenceImage,
@@ -41,6 +44,7 @@ import type {
   GenerationSnapshot,
   GptParams,
   ImageProviderId,
+  PortraitBlock,
   PortraitItem,
   PoseItem,
   ProviderEndpointConfig,
@@ -55,6 +59,7 @@ const TASK_KEY = 'pose_atlas_active_task_v1'
 type ActiveTask = { task?: ComfyTaskHandle; prompt: string; summary: string; unknown?: boolean; snapshot?: GenerationSnapshot }
 const SAFE_MODE_KEY = 'pose_atlas_safe_mode_v1'
 const LEGACY_LIBRARIES_KEY = 'pose_atlas_legacy_libraries_v1'
+const SUBFIELDS_KEY = 'pose_atlas_subfields_v1'
 
 const COMFY_CONFIG_VERSION = 3
 
@@ -212,6 +217,10 @@ interface StudioContextValue {
   requestUnlockNsfw: (onUnlocked?: () => void) => void
   showLegacyLibraries: boolean
   toggleLegacyLibraries: () => void
+  useSubfields: boolean
+  toggleSubfields: () => void
+  setAdvancedPortrait: (patch: Partial<PortraitBlock>) => void
+  setAdvancedCostume: (patch: Partial<CostumeBlock>) => void
   poseDepthMode: boolean
   setPoseDepthMode: (val: boolean) => void
   toggleRecipePoseDepth: () => void
@@ -263,6 +272,8 @@ export function StudioProvider({ children }: { children: ReactNode }) {
         portrait: parsed.portrait ?? null,
         costume: parsed.costume ?? null,
         pose: parsed.pose ?? null,
+        advancedPortrait: parsed.advancedPortrait ?? null,
+        advancedCostume: parsed.advancedCostume ?? null,
         extraImages: Array.isArray(parsed.extraImages) ? parsed.extraImages : [],
       }
     } catch {
@@ -305,6 +316,13 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       return raw === null ? true : raw !== 'false'
     } catch {
       return true
+    }
+  })
+  const [useSubfields, setUseSubfields] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(SUBFIELDS_KEY) === 'true'
+    } catch {
+      return false
     }
   })
   const [ageGateOpen, setAgeGateOpen] = useState(false)
@@ -353,6 +371,8 @@ export function StudioProvider({ children }: { children: ReactNode }) {
           portrait: savedRecipe.portrait ?? null,
           costume: savedRecipe.costume ?? null,
           pose: savedRecipe.pose ?? null,
+          advancedPortrait: savedRecipe.advancedPortrait ?? null,
+          advancedCostume: savedRecipe.advancedCostume ?? null,
           workflowImages: savedRecipe.workflowImages ?? {},
           workflowImagesIdentity: savedRecipe.workflowImagesIdentity,
           extraImages: Array.isArray(savedRecipe.extraImages) ? savedRecipe.extraImages : [],
@@ -402,6 +422,12 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     } catch {}
   }, [showLegacyLibraries])
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(SUBFIELDS_KEY, String(useSubfields))
+    } catch {}
+  }, [useSubfields])
+
   const requestUnlockNsfw = (onUnlocked?: () => void) => {
     if (!safeMode) {
       onUnlocked?.()
@@ -435,9 +461,26 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     toast.success(next ? '已显示原版人像/服装库' : '已隐藏原版人像/服装库')
   }
 
+  const toggleSubfields = () => {
+    const next = !useSubfields
+    setUseSubfields(next)
+    toast.success(next ? '已展开子字段精细化选项' : '已回到原版三元素模式')
+  }
+
   const setPortrait = (portrait: PortraitItem | null) => setRecipe((r) => ({ ...r, portrait }))
   const setCostume = (costume: CostumeItem | null) => setRecipe((r) => ({ ...r, costume }))
   const setPose = (pose: PoseItem | null) => setRecipe((r) => ({ ...r, pose }))
+
+  const setAdvancedPortrait = (patch: Partial<PortraitBlock>) =>
+    setRecipe((r) => ({
+      ...r,
+      advancedPortrait: { base: null, expression: null, hair: [], ...r.advancedPortrait, ...patch },
+    }))
+  const setAdvancedCostume = (patch: Partial<CostumeBlock>) =>
+    setRecipe((r) => ({
+      ...r,
+      advancedCostume: { top: [], bottom: [], extras: [], ...r.advancedCostume, ...patch },
+    }))
 
   const setPoseDepthMode = (val: boolean) => {
     setPoseDepthModeState(val)
@@ -526,7 +569,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   }, [activeComfyParams, idbHydrated])
 
   const clearRecipe = () => {
-    setRecipe({ portrait: null, costume: null, pose: null, extraImages: [] })
+    setRecipe({ portrait: null, costume: null, pose: null, advancedPortrait: null, advancedCostume: null, extraImages: [] })
     toast.success('已清空配方')
   }
 
@@ -634,7 +677,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
 
   const refreshStitchPreview = async () => {
     try {
-      const url = await stitchRecipeCanvas(recipe)
+      const url = await stitchRecipeCanvas(recipe, useSubfields)
       setPreviewUrl(url)
       toast.success('已合成参考拼图')
     } catch (e) {
@@ -702,7 +745,9 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     if (activeTaskRef.current) { toast.error('存在待确认任务，请先恢复或明确停止跟踪'); return }
     const recipeSnapshot = recipe
     const configSnapshot = apiConfig
-    const finalPrompt = overridePrompt ?? customPrompt ?? buildRecipePrompt(recipeSnapshot, configSnapshot.stylePreset, configSnapshot.activeProvider === 'comfyui' && recipeSnapshot.workflowImagesIdentity === workflowIdentity(configSnapshot.comfyuiParams.workflowJson) ? Object.values(recipeSnapshot.workflowImages || {}) : [])
+    const workflowImages = configSnapshot.activeProvider === 'comfyui' && recipeSnapshot.workflowImagesIdentity === workflowIdentity(configSnapshot.comfyuiParams.workflowJson) ? Object.values(recipeSnapshot.workflowImages || {}) : []
+    const effectiveRecipe = useSubfields && hasAdvancedBlocks(recipeSnapshot) ? await resolveSubfieldRecipe(recipeSnapshot) : recipeSnapshot
+    const finalPrompt = overridePrompt ?? customPrompt ?? buildRecipePrompt(recipeSnapshot, configSnapshot.stylePreset, workflowImages, useSubfields)
     let record: ActiveTask = { prompt: finalPrompt, summary: [recipeSnapshot.portrait?.发型名称, recipeSnapshot.costume?.服装名称, recipeSnapshot.pose?.姿势名称].filter(Boolean).join(' + ') || '自定义合成' }
     isGeneratingRef.current = true
     setIsGenerating(true)
@@ -715,7 +760,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       record.snapshot = await snapshotGeneration(recipeSnapshot, configSnapshot, finalPrompt)
       controller.signal.throwIfAborted()
       if (configSnapshot.activeProvider === 'comfyui') await idbWrite(TASK_KEY, null)
-      const result = await generateCharacterImage({ recipe: recipeSnapshot, prompt: finalPrompt, config: configSnapshot, onProgress: setGenerationProgress, signal: controller.signal,
+      const result = await generateCharacterImage({ recipe: effectiveRecipe, prompt: finalPrompt, config: configSnapshot, onProgress: setGenerationProgress, signal: controller.signal,
         onSubmitting: async (prepared) => {
           controller.signal.throwIfAborted()
           if (record.snapshot && prepared) record.snapshot.submittedWorkflowJson = JSON.stringify(prepared.workflow)
@@ -756,6 +801,10 @@ export function StudioProvider({ children }: { children: ReactNode }) {
         requestUnlockNsfw,
         showLegacyLibraries,
         toggleLegacyLibraries,
+        useSubfields,
+        toggleSubfields,
+        setAdvancedPortrait,
+        setAdvancedCostume,
         poseDepthMode,
         setPoseDepthMode,
         toggleRecipePoseDepth,

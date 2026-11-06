@@ -97,6 +97,7 @@ function StudioPage() {
     setCostume,
     setPose,
     toggleRecipePoseDepth,
+    useSubfields,
     addExtraImage,
     removeExtraImage,
     updateExtraImageName,
@@ -131,7 +132,7 @@ function StudioPage() {
   const providerCfg = apiConfig.providers[activeProvider]
 
   const activeWorkflowImages = activeProvider === 'comfyui' && recipe.workflowImagesIdentity === workflowIdentity(apiConfig.comfyuiParams.workflowJson) ? Object.values(recipe.workflowImages || {}) : []
-  const defaultPrompt = buildRecipePrompt(recipe, apiConfig.stylePreset, activeWorkflowImages)
+  const defaultPrompt = buildRecipePrompt(recipe, apiConfig.stylePreset, activeWorkflowImages, useSubfields)
   const prompt = customPrompt ?? defaultPrompt
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [extraUrlInput, setExtraUrlInput] = useState('')
@@ -390,7 +391,7 @@ function StudioPage() {
 
   const handleOpenStitchModal = async () => {
     try {
-      const url = await stitchRecipeCanvas(recipe)
+      const url = await stitchRecipeCanvas(recipe, useSubfields)
       setStitchModalUrl(url)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '拼图失败')
