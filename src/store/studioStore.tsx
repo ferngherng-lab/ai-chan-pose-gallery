@@ -267,14 +267,15 @@ interface StudioContextValue {
 
 const StudioContext = createContext<StudioContextValue | null>(null)
 
-/** 舊版配方缺少後加的 hair/hairOn/threeViewOn/expressionOn 欄位，載入時補齊預設值 */
+/** 舊版配方缺少後加的 hair/hairOn/threeViews/threeViewOn/expressionOn 欄位，載入時補齊預設值 */
 function normalizeDressup(d: DressupState | null | undefined): DressupState | null {
   if (!d) return null
   return {
     ...d,
     hair: d.hair ?? [],
     hairOn: d.hairOn ?? false,
-    threeViewOn: d.threeViewOn ?? true,
+    threeViews: d.threeViews ?? [],
+    threeViewOn: d.threeViewOn ?? false,
     expressionOn: d.expressionOn ?? true,
   }
 }

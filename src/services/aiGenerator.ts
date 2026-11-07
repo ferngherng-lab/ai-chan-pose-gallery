@@ -721,16 +721,25 @@ async function resolveDressupPortraitImage(dressup: DressupState): Promise<Portr
   const fixed = [...dressup.inherent, ...(dressup.wingsOn ? dressup.wings : []), ...(dressup.hairOn ? dressup.hair : [])]
   const expression = dressup.expressionOn ? dressup.expression : null
   if (!dressup.subjectView && !expression && fixed.length === 0) return undefined
+
+  // 三視圖開關 ON 時拼入正面/側面/背面三張；OFF 時只拼所選單圖（預設正面）
+  const viewLabels = ['正面', '側面', '背面']
+  const sheetViews = dressup.threeViewOn ? [...dressup.threeViews].sort((a, b) => viewOrder(a) - viewOrder(b)) : []
+  const subjectParts: Array<{ tag: string; sub: string; src: string }> =
+    sheetViews.length > 0
+      ? sheetViews.map((v, i) => ({ tag: viewLabels[i] ?? `視角${i + 1}`, sub: v.发型名称 || v.标题, src: v.原图 || v.缩略图 }))
+      : dressup.subjectView
+        ? [{ tag: '主體', sub: dressup.subjectView.发型名称 || dressup.subjectView.标题, src: dressup.subjectView.原图 || dressup.subjectView.缩略图 }]
+        : []
+
   const parts: Array<{ tag: string; sub: string; src: string }> = [
-    ...(dressup.subjectView
-      ? [{ tag: '主體', sub: dressup.subjectView.发型名称 || dressup.subjectView.标题, src: dressup.subjectView.原图 || dressup.subjectView.缩略图 }]
-      : []),
+    ...subjectParts,
     ...(expression
       ? [{ tag: '表情', sub: expression.发型名称 || expression.标题, src: expression.原图 || expression.缩略图 }]
       : []),
     ...fixed.map((i) => ({ tag: '固有', sub: i.服装名称, src: i.预览图 || i.原图 || i.缩略图 })),
   ]
-  const anchor = dressup.subjectView ?? expression ?? costumeToPortraitAnchor(fixed[0])
+  const anchor = dressup.subjectView ?? dressup.threeViews[0] ?? expression ?? costumeToPortraitAnchor(fixed[0])
   if (!anchor) return null
   const src = await stitchCards(parts)
   return { ...anchor, 原图: src, 缩略图: src }

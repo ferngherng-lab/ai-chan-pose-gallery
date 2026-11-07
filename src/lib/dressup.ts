@@ -91,13 +91,14 @@ export function buildInitialDressup(
   return {
     subject: key,
     subjectView: pickFrontView(views),
+    threeViews: views,
     expression: expressions[0] ?? null,
     inherent: parts,
     wings: optional,
     wingsOn: optional.length > 0,
     hair,
     hairOn: hair.length > 0,
-    threeViewOn: opts?.threeViewOn ?? true,
+    threeViewOn: opts?.threeViewOn ?? false,
     expressionOn: true,
     slots,
   }

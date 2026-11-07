@@ -125,6 +125,8 @@ export interface DressupState {
   subject: string
   /** 主體三视图（正面/侧面/背面） */
   subjectView: PortraitItem | null
+  /** 角色三視圖（正面/側面/背面）；三視圖開關 ON 時拼入形象圖 */
+  threeViews: PortraitItem[]
   /** 表情（該角色 分区=表情 子集） */
   expression: PortraitItem | null
   /** 固有件：耳/角/尾/面部特徵（隨主體固定，不可換） */
@@ -137,7 +139,7 @@ export interface DressupState {
   hair: CostumeItem[]
   /** 髮型開關：false 時不渲染、提示詞不提 */
   hairOn: boolean
-  /** 三視圖開關：true＝三視圖鎖定（用所選視角，含側/背），false＝只用正面 */
+  /** 三視圖開關：true＝拼圖時拼入三視圖（3 張），false＝只拼正面單圖 */
   threeViewOn: boolean
   /** 表情開關：true＝套用表情，false＝無表情 */
   expressionOn: boolean

@@ -75,18 +75,20 @@ function SelectThumb({
   active,
   onClick,
   size = 'w-24',
+  dim = true,
 }: {
   src: string
   label: string
   active: boolean
   onClick: () => void
   size?: string
+  dim?: boolean
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={cn('flex shrink-0 flex-col items-center gap-1 rounded-lg p-1 transition', size, active ? 'bg-primary/10 ring-2 ring-primary' : 'opacity-70 hover:opacity-100')}
+      className={cn('flex shrink-0 flex-col items-center gap-1 rounded-lg p-1 transition', size, active ? 'bg-primary/10 ring-2 ring-primary' : dim ? 'opacity-70 hover:opacity-100' : 'opacity-100')}
     >
       <div className="aspect-4/5 w-full overflow-hidden rounded-md bg-white">
         <img src={referenceImageUrl(src)} alt={label} loading="lazy" className="h-full w-full object-contain" />
@@ -140,11 +142,13 @@ function DressupPage() {
   const selectSubject = useCallback(
     (key: string) => {
       if (!useSubfields) toggleSubfields()
-      const state = buildInitialDressup(key, aichanCostumes, portraits, inherent, taxonomy)
+      // characters 頁「選中三視圖」→ recipe.portrait 為 sheet 複合圖；對應三視圖開關 ON（同一內部設定）
+      const threeViewOn = recipe.portrait?.角色 === key && Boolean(recipe.portrait?.sheet)
+      const state = buildInitialDressup(key, aichanCostumes, portraits, inherent, taxonomy, { threeViewOn })
       setDressup(state)
       toast.success(`已選主體：${charName.get(key) ?? key}`)
     },
-    [useSubfields, toggleSubfields, setDressup, aichanCostumes, portraits, inherent, taxonomy, charName]
+    [useSubfields, toggleSubfields, setDressup, aichanCostumes, portraits, inherent, taxonomy, charName, recipe.portrait]
   )
 
   /** A 主體 + B 全套裝飾（一鍵） */
@@ -302,7 +306,7 @@ function DressupPage() {
             <label className="flex shrink-0 cursor-pointer items-center gap-1 text-[11px]">
               <Switch
                 checked={dressup.threeViewOn}
-                onCheckedChange={(v) => update(v ? { threeViewOn: true } : { threeViewOn: false, subjectView: pickFrontView(subjectViewsList) })}
+                onCheckedChange={(v) => update({ threeViewOn: v })}
               />
               三視圖
             </label>
@@ -337,11 +341,11 @@ function DressupPage() {
             </Button>
           </div>
 
-          {subjectViewsList.length > 0 && dressup.threeViewOn && (
+          {subjectViewsList.length > 0 && (
             <div className="flex flex-wrap items-end gap-1.5">
               <span className="mb-1 shrink-0 text-[11px] text-muted-foreground">三視圖</span>
               {subjectViewsList.map((v) => (
-                <SelectThumb key={v.id} src={v.缩略图} label={viewLabel(v)} active={dressup.subjectView?.id === v.id} onClick={() => update({ subjectView: v })} size={showExpressions ? 'w-24' : 'w-40'} />
+                <SelectThumb key={v.id} src={v.缩略图} label={viewLabel(v)} active={dressup.subjectView?.id === v.id} onClick={() => update({ subjectView: v })} size={showExpressions ? 'w-24' : 'w-40'} dim={!dressup.threeViewOn} />
               ))}
             </div>
           )}
