@@ -61,6 +61,32 @@ function GuidePage() {
         </div>
       </Section>
 
+      <Section title="存疑清單（已知限制）" className="@lg/section:grid-cols-1">
+        <div className="space-y-2.5 rounded-2xl bg-background p-4 text-xs leading-relaxed text-muted-foreground">
+          <p className="text-[11px] text-muted-foreground/80">
+            下列項目「效果無法 100% 保證、或需人工抽檢」，特此列出，避免誤以為可完美達成。
+          </p>
+          <p>
+            <strong className="text-foreground">1. aichan 形象 ↔ 原版形象（衝突／互斥／融合）：</strong>
+            aichan 形象與原版人像共用同一個「形象」槽位（互斥，一次只能選一個）。當 aichan 形象與原版服裝／姿勢疊加時，風格、身形、視角未必一致，能否正確融合無法 100% 保證，需人工抽檢。
+          </p>
+          <p>
+            <strong className="text-foreground">2. aichan 服飾·配飾 ↔ 原版服飾（衝突／互斥／融合）：</strong>
+            aichan 服飾·配飾目前僅供瀏覽；「加入配方」跳轉至「aichan 換裝」，由使用者以 14 槽位自訂拼裝一張服飾參考圖。與原版服飾／形象疊加時存在衝突／互斥／融合的可能，效果無法 100% 保證，需人工抽檢。
+          </p>
+          <p>
+            <strong className="text-foreground">3. 已移除的配飾（資料清理）：</strong>
+            <code className="text-foreground">外卖箱盖灯条</code> 因與同角色「美团外卖箱」道具衝突且不具實用性，已自選項資料完全移除，不再出現於任何界面。
+          </p>
+          <p className="mt-1">
+            <strong className="text-foreground">誠邀共建：</strong>
+            若你對上述存疑之處有解決思路、或想協助推進，歡迎前往{' '}
+            <a className="underline hover:text-foreground" href="https://github.com/ferngherng-lab/ai-chan-pose-gallery" target="_blank" rel="noopener noreferrer">GitHub 倉庫</a>{' '}
+            提 Issue 或 Pull Request，一起完善本站。
+          </p>
+        </div>
+      </Section>
+
       <Section title="免责声明与合规使用规范（必读）" className="@lg/section:grid-cols-1">
         <div className="space-y-2.5 rounded-2xl bg-background p-4 text-xs leading-relaxed text-muted-foreground">
           <p>
