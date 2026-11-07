@@ -56,6 +56,8 @@ export interface CostumeItem {
 
 export interface PortraitItem {
   source?: 'upload' | 'aichan'
+  /** 是否為「三視圖合成」設定圖（正面/側面/背面拼成一張），提示詞據此切換 */
+  sheet?: boolean
   id: string
   分区: string
   发长: string
@@ -63,6 +65,8 @@ export interface PortraitItem {
   标题: string
   角色?: string
   角色名?: string
+  /** 拼入形象複合圖的固有件名稱（角/耳/尾/翼/面部特徵），供提示詞精確列舉；人形角色為空 */
+  固有?: string[]
   宽: number
   高: number
   字节数: number
@@ -85,10 +89,14 @@ export type AssetRegion = '形象' | '服飾'
 export type CostumeZone = '上裝' | '下裝' | '其他'
 export type CostumeZones = CostumeZone[]
 
+export type AssetKind = '固有' | '裝飾'
+
 export interface CostumePiece {
   item: CostumeItem
   region: AssetRegion
   zones: CostumeZones
+  /** 固有＝隨主體固定（耳/角/尾/翼/面部特徵）；裝飾＝可換 */
+  kind?: AssetKind
 }
 
 export interface CostumeBlock {
@@ -103,6 +111,54 @@ export interface PortraitBlock {
   hair: CostumeItem[]
 }
 
+// ---- 換裝層（Phase C）：DressupState 編譯到既有 3 圖模型，不新增生成路徑 ----
+
+export interface DressupSlotSelection {
+  slotId: string
+  slotLabel: string
+  order: number
+  items: CostumeItem[]
+}
+
+export interface DressupState {
+  /** 主體角色 key（形象錨點） */
+  subject: string
+  /** 主體三视图（正面/侧面/背面） */
+  subjectView: PortraitItem | null
+  /** 表情（該角色 分区=表情 子集） */
+  expression: PortraitItem | null
+  /** 固有件：耳/角/尾/面部特徵（隨主體固定，不可換） */
+  inherent: CostumeItem[]
+  /** 翼（可選固有） */
+  wings: CostumeItem[]
+  /** 翼開關：false 時不渲染、提示詞不提（不做否定強調） */
+  wingsOn: boolean
+  /** 髮型固有（呆毛/发丝/编发，可選固有） */
+  hair: CostumeItem[]
+  /** 髮型開關：false 時不渲染、提示詞不提 */
+  hairOn: boolean
+  /** 14 槽位自上而下，每槽 0..n 件（可留空 / 可混搭多來源） */
+  slots: DressupSlotSelection[]
+}
+
+export interface AichanInherentEntry {
+  parts: string[]
+  optional: string[]
+  /** 髮型固有（呆毛/发丝/编发，可選開關，同翼） */
+  hair?: string[]
+}
+export type AichanInherent = Record<string, AichanInherentEntry>
+
+export interface DressupSlot {
+  id: string
+  label: string
+  order: number
+}
+export interface AichanSlotTaxonomy {
+  slots: DressupSlot[]
+  mapping: Record<string, string>
+}
+
 export interface RecipeState {
   portrait: PortraitItem | null
   costume: CostumeItem | null
@@ -110,6 +166,8 @@ export interface RecipeState {
   /** 子欄位精細化（useSubfields 開關 ON 時才參與生成） */
   advancedPortrait?: PortraitBlock | null
   advancedCostume?: CostumeBlock | null
+  /** 換裝（Phase C，useSubfields 開關 ON 時才參與生成） */
+  dressup?: DressupState | null
   workflowImages?: Record<string, ExtraReferenceImage>
   workflowImagesIdentity?: string
   extraImages?: ExtraReferenceImage[]

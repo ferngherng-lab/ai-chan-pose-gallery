@@ -2,11 +2,13 @@ import type { LinkProps } from '@tanstack/react-router'
 import {
   BookOpenIcon,
   KeyRoundIcon,
+  LayersIcon,
   LayoutDashboardIcon,
   PersonStandingIcon,
   ShirtIcon,
   SparklesIcon,
   UserRoundIcon,
+  Wand2Icon,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -15,6 +17,8 @@ export interface NavItem {
   to: NonNullable<LinkProps['to']>
   icon: LucideIcon
   badge?: string
+  /** 標記為原版圖庫項目（受「原版图库」開關控制） */
+  legacy?: boolean
 }
 
 export interface NavGroup {
@@ -27,24 +31,20 @@ export const navGroups: NavGroup[] = [
   {
     label: '工作台',
     items: [
-      { title: '图库总览', to: '/', icon: LayoutDashboardIcon },
+      { title: 'aichan 圖庫總覽', to: '/', icon: LayoutDashboardIcon },
+      { title: '原版圖庫總覽', to: '/legacy', icon: LayersIcon, legacy: true },
+      { title: 'aichan 換裝', to: '/dressup', icon: Wand2Icon, badge: 'NEW' },
       { title: 'AI 角色合成台', to: '/studio', icon: SparklesIcon, badge: 'PRO' },
     ],
   },
   {
-    label: '优先参考（AI 娘 × 姿势）',
+    label: '參考圖庫',
     items: [
-      { title: '动作姿势库', to: '/poses', icon: PersonStandingIcon, badge: '1,439' },
-      { title: 'AI 娘角色', to: '/characters', icon: UserRoundIcon, badge: '198' },
-      { title: '服装·配饰', to: '/outfits', icon: ShirtIcon, badge: '198' },
-    ],
-  },
-  {
-    label: '原版参考图库',
-    id: 'legacy',
-    items: [
-      { title: '人像库', to: '/portraits', icon: UserRoundIcon, badge: '1,499' },
-      { title: '服装库', to: '/costumes', icon: ShirtIcon, badge: '3,224' },
+      { title: 'aichan 形象', to: '/characters', icon: UserRoundIcon, badge: '198' },
+      { title: 'aichan 服裝配飾', to: '/outfits', icon: ShirtIcon, badge: '198' },
+      { title: '動作姿勢庫', to: '/poses', icon: PersonStandingIcon, badge: '1,439' },
+      { title: '原版服裝庫', to: '/costumes', icon: ShirtIcon, badge: '3,224', legacy: true },
+      { title: '原版人像庫', to: '/portraits', icon: UserRoundIcon, badge: '1,499', legacy: true },
     ],
   },
   {

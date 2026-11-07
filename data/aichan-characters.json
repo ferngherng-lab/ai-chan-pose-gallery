@@ -55,8 +55,13 @@
   "品牌": "Anthropic"
  },
  {
-  "key": "12_DeepSeek娘_Q版冬装",
-  "角色名": "DeepSeek 娘（Q 版冬装）",
+  "key": "12_DeepSeek娘_Q版冬装_小肥鱼",
+  "角色名": "DeepSeek 娘（Q 版冬装 · 小肥鱼）",
+  "品牌": "DeepSeek"
+ },
+ {
+  "key": "12_DeepSeek娘_Q版冬装_小肥鱼2",
+  "角色名": "DeepSeek 娘（Q 版冬装 · 小肥鱼2）",
   "品牌": "DeepSeek"
  },
  {

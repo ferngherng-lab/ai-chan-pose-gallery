@@ -1,0 +1,127 @@
+{
+ "01_智谱GLM娘_阔耳狐娘": {
+  "parts": [
+   "01_智谱GLM娘_阔耳狐娘/D02_道具_狐尾",
+   "01_智谱GLM娘_阔耳狐娘/D04_道具_狐耳"
+  ],
+  "optional": []
+ },
+ "02_GPT娘_白龙娘": {
+  "parts": [
+   "02_GPT娘_白龙娘/D03_道具_龙角",
+   "02_GPT娘_白龙娘/D05_道具_龙尾"
+  ],
+  "optional": [
+   "02_GPT娘_白龙娘/D04_道具_龙翼"
+  ],
+  "hair": [
+   "02_GPT娘_白龙娘/D07_道具_发丝与呆毛"
+  ]
+ },
+ "03_DeepSeek娘_鲸鱼娘": {
+  "parts": [
+   "03_DeepSeek娘_鲸鱼娘/D01_道具_鲸鱼鳍耳",
+   "03_DeepSeek娘_鲸鱼娘/D02_道具_鲸鱼尾"
+  ],
+  "optional": [],
+  "hair": [
+   "03_DeepSeek娘_鲸鱼娘/D06_道具_发丝与呆毛"
+  ]
+ },
+ "04_文心一言娘": {
+  "parts": [],
+  "optional": []
+ },
+ "05_通义千问娘_Qwen": {
+  "parts": [],
+  "optional": []
+ },
+ "06_Kimi娘_Moonshot": {
+  "parts": [],
+  "optional": []
+ },
+ "07_豆包Seed娘": {
+  "parts": [],
+  "optional": []
+ },
+ "08_MiniMax娘_海螺AI": {
+  "parts": [],
+  "optional": []
+ },
+ "09_Grok娘_xAI": {
+  "parts": [
+   "09_Grok娘_xAI/D03_道具_双马尾发结与蝙蝠翼飘带"
+  ],
+  "optional": []
+ },
+ "10_Gemini娘": {
+  "parts": [
+   "10_Gemini娘/D02_道具_猫耳",
+   "10_Gemini娘/D03_道具_猫尾"
+  ],
+  "optional": [],
+  "hair": [
+   "10_Gemini娘/D07_道具_发丝与呆毛"
+  ]
+ },
+ "11_Claude娘_Anthropic": {
+  "parts": [],
+  "optional": [],
+  "hair": [
+   "11_Claude娘_Anthropic/D07_道具_发丝与发型形态"
+  ]
+ },
+ "12_DeepSeek娘_Q版冬装_小肥鱼": {
+  "parts": [
+   "12_DeepSeek娘_Q版冬装/冬装小肥鱼/D01_道具_鲸鱼尾",
+   "12_DeepSeek娘_Q版冬装/冬装小肥鱼/D02_道具_鲸鱼鳍耳"
+  ],
+  "optional": []
+ },
+ "12_DeepSeek娘_Q版冬装_小肥鱼2": {
+  "parts": [
+   "12_DeepSeek娘_Q版冬装/冬装小肥鱼2/D01_道具_鲸鱼尾"
+  ],
+  "optional": []
+ },
+ "13_GPT娘_Q版白紫龙娘": {
+  "parts": [
+   "13_GPT娘_Q版白紫龙娘/D01_道具_紫色龙角",
+   "13_GPT娘_Q版白紫龙娘/D04_道具_鳞片龙尾"
+  ],
+  "optional": [
+   "13_GPT娘_Q版白紫龙娘/D03_道具_淡紫小蝠翼"
+  ]
+ },
+ "14_DeepSeek娘_Claude工牌工作服": {
+  "parts": [
+   "14_DeepSeek娘_Claude工牌工作服/D01_道具_鲸鱼鳍耳",
+   "14_DeepSeek娘_Claude工牌工作服/D02_道具_蓝色鲸鱼尾"
+  ],
+  "optional": []
+ },
+ "15_MiMo兔娘_甶丶_机能外套": {
+  "parts": [
+   "15_MiMo兔娘_甶丶_机能外套/D01_道具_机械兔耳头箍",
+   "15_MiMo兔娘_甶丶_机能外套/D07_道具_米字瞳眼部细节"
+  ],
+  "optional": []
+ },
+ "16_MiMo兔娘_Immyxxr_女仆装": {
+  "parts": [
+   "16_MiMo兔娘_Immyxxr_女仆装/D01_道具_软兔耳女仆头箍",
+   "16_MiMo兔娘_Immyxxr_女仆装/D05_道具_白色圆兔尾"
+  ],
+  "optional": [],
+  "hair": [
+   "16_MiMo兔娘_Immyxxr_女仆装/D07_道具_背后环形编发"
+  ]
+ },
+ "17_LongCat娘_美团龙猫_现代外套": {
+  "parts": [
+   "17_LongCat娘_美团龙猫_现代外套/D01_道具_绿白猫耳",
+   "17_LongCat娘_美团龙猫_现代外套/D03_道具_黑绿猫尾"
+  ],
+  "optional": []
+ }
+}

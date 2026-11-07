@@ -83,7 +83,9 @@ function localAssetsAndProxyPlugin(): Plugin {
     }
     const ext = path.extname(filePath).toLowerCase()
     res.setHeader('Content-Type', MIME[ext] || 'application/octet-stream')
-    res.setHeader('Cache-Control', 'public, max-age=3600')
+    // 資料檔（data/*.json、*.csv）開發時變動頻繁，關閉快取以免「改了不生效」；圖片體積大，保留長快取
+    const isData = ext === '.json' || ext === '.csv'
+    res.setHeader('Cache-Control', isData ? 'no-store' : 'public, max-age=3600')
     fs.createReadStream(filePath).pipe(res)
   }
 
@@ -140,10 +142,13 @@ export default defineConfig({
     },
   },
   server: {
+    // 綁定 IPv4 迴路，避免 Node≥17 將 localhost 解析成 ::1 後，瀏覽器連不上 127.0.0.1 導致圖片全部載入失敗
+    host: '127.0.0.1',
     port: 5173,
     proxy: comfyProxy,
   },
   preview: {
+    host: '127.0.0.1',
     proxy: comfyProxy,
   },
 })

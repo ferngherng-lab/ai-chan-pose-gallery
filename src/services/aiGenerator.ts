@@ -1,4 +1,4 @@
-import type { ApiConfig, CostumeItem, ExtraReferenceImage, ImageProviderId, PortraitItem, RecipeState } from '@/types/gallery'
+import type { ApiConfig, CostumeItem, DressupState, ExtraReferenceImage, ImageProviderId, PortraitItem, RecipeState } from '@/types/gallery'
 import { applyWorkflowOverrides, getWorkflowImages, validateReferenceCombinations, workflowIdentity, type ComfyObjectInfo } from '@/lib/comfyWorkflowParameters'
 import { poseImagePath, referenceImageUrl } from '@/lib/recipeImages'
 import qwen2509ThreeImageWorkflow from '@/workflows/qwen_image_edit_2509_3img.api.json'
@@ -166,7 +166,42 @@ export function hasAdvancedBlocks(recipe: RecipeState): boolean {
   return hasAdvancedPortrait(recipe) || hasAdvancedCostume(recipe)
 }
 
+export function hasDressup(recipe: RecipeState): boolean {
+  const d = recipe.dressup
+  return Boolean(
+    d &&
+      (d.subject ||
+        d.subjectView ||
+        d.expression ||
+        d.inherent.length > 0 ||
+        d.wings.length > 0 ||
+        d.hair.length > 0 ||
+        d.slots.some((s) => s.items.length > 0))
+  )
+}
+
+/** 依名稱分類身體固有特徵。先查「翼」再查「尾」，避免「双马尾…蝙蝠翼飘带」誤判為尾巴。 */
+function classifyBodyFeature(name: string): string {
+  if (name.includes('翼') || name.includes('翅膀')) return '翅膀'
+  if (name.includes('尾')) return '尾巴'
+  if (name.includes('耳')) return '耳朵'
+  if (name.includes('角')) return '角（horn）'
+  if (name.includes('瞳') || name.includes('眼')) return '眼部特徵'
+  if (name.includes('发丝') || name.includes('呆毛') || name.includes('发型') || name.includes('编发')) return '发型'
+  return '身体特征'
+}
+
+/** 共享固有子句：由「所選主體是否含有非人類固有部分」驅動，任何入口同一句。空 → 空串。 */
+function buildInherentClause(names: string[]): string {
+  if (!names.length) return ''
+  const listed = names.map((n) => `${n}（${classifyBodyFeature(n)}）`).join('、')
+  return `并固定保留、逐一强调且不得省略或改变该角色的身体特征（角、耳、尾、翼等）：${listed}。上述特征必须完整出现在最终画面中，缺一不可。`
+}
+
 export function buildRecipePrompt(recipe: RecipeState, stylePreset = 'realistic', workflowImages: ExtraReferenceImage[] = [], useSubfields = false): string {
+  if (useSubfields && hasDressup(recipe)) {
+    return buildDressupPrompt(recipe, stylePreset, workflowImages)
+  }
   if (useSubfields && hasAdvancedBlocks(recipe)) {
     return buildSubfieldPrompt(recipe, stylePreset, workflowImages)
   }
@@ -191,8 +226,11 @@ function buildLegacyPrompt(recipe: RecipeState, stylePreset = 'realistic', workf
     const outfit = recipe.costume ? '' : '保留图1人物原有可见服装与配饰，不复制姿势参考图的服装或白模外观。'
     if (recipe.portrait.source === 'aichan') {
       const cname = recipe.portrait.角色名 || recipe.portrait.发长
+      const inherent = buildInherentClause(recipe.portrait.固有 ?? [])
       clauses.push(
-        `• 角色：以图${idx}中的角色为原型，保持其脸型、五官、发型、发色与肤色一致${cname ? `（角色：${cname}）` : ''}。${skin}${outfit}`
+        recipe.portrait.sheet
+          ? `• 角色：图${idx}是一张同一角色的三视图设定图（正面/侧面/背面），不是多个不同人物。保持角色的脸型、五官、发型、发色与肤色一致${cname ? `（角色：${cname}）` : ''}。${skin}${outfit}${inherent}`
+          : `• 角色：以图${idx}中的角色为原型，保持其脸型、五官、发型、发色与肤色一致${cname ? `（角色：${cname}）` : ''}。${skin}${outfit}${inherent}`
       )
     } else {
       const hairDesc =
@@ -293,7 +331,12 @@ function buildSubfieldPrompt(recipe: RecipeState, stylePreset: string, workflowI
     const skin = '人物的肤色必须与图一人物一致，所有裸露皮肤（包括服装镂空处露出的皮肤）必须与脸部肤色统一，统一后的肤色与质感按风格要求呈现。'
     if (recipe.portrait.source === 'aichan') {
       const cname = recipe.portrait.角色名 || recipe.portrait.发长
-      clauses.push(`• 角色：以图${idx}中的角色为原型，保持其脸型、五官、发型、发色与肤色一致${cname ? `（角色：${cname}）` : ''}。${skin}`)
+      const inherent = buildInherentClause(recipe.portrait.固有 ?? [])
+      clauses.push(
+        recipe.portrait.sheet
+          ? `• 角色：图${idx}是一张同一角色的三视图设定图（正面/侧面/背面），不是多个不同人物。保持角色的脸型、五官、发型、发色与肤色一致${cname ? `（角色：${cname}）` : ''}。${skin}${inherent}`
+          : `• 角色：以图${idx}中的角色为原型，保持其脸型、五官、发型、发色与肤色一致${cname ? `（角色：${cname}）` : ''}。${skin}${inherent}`
+      )
     } else {
       const hairDesc = recipe.portrait.发型名称 && recipe.portrait.发型名称 !== '标准基础款' ? recipe.portrait.标题 : recipe.portrait.发长
       clauses.push(recipe.portrait.source === 'upload' ? `• 人物：图${idx}中的人物，保持其脸型、五官、发型和发色一致。${skin}` : `• 人物：图${idx}中的人物，保持其脸型、五官、发型（${hairDesc}）和发色一致。${skin}`)
@@ -320,6 +363,88 @@ function buildSubfieldPrompt(recipe: RecipeState, stylePreset: string, workflowI
       recipe.costume.source === 'upload'
         ? `• 服装：让人物${wear}图${idx}中展示的整套服装和配饰，每件单品的颜色、款式、面料与配饰都以图${idx}为准。`
         : `• 服装：让人物${wear}图${idx}中展示的整套服装和配饰（参考名称：${recipe.costume.服装名称}），每件单品的颜色、款式、面料与配饰都以图${idx}为准，名称仅作辅助说明。`
+    )
+    idx++
+  }
+
+  if (recipe.pose) {
+    const wear = costumeIdx ? `，穿着图${costumeIdx}的服装` : ''
+    const body = isPhoto ? `最终画面中的人物是真人，皮肤真实自然${wear}` : `人物的肤色与质感按风格要求呈现${wear}`
+    clauses.push(
+      recipe.pose.source === 'upload'
+        ? `• 姿势：按照图${idx}中的人物动作和镜头角度摆姿势；仅参考姿势与构图，不复制图${idx}人物的外观与服装，${body}。`
+        : `• 姿势：按照图${idx}中人体模型的动作和镜头角度摆姿势（${recipe.pose.姿势名称}，${recipe.pose.角度}）；图${idx}只是动作示意，${body}。`
+    )
+    idx++
+  }
+  if (faceless) {
+    clauses.push('• 无脸展示：生成一位穿着参考服装的成年展示人物，脸部保持无五官的自然肤色表面，不添加眼睛、鼻子、嘴巴或具体人物身份；全身裸露皮肤的颜色统一，不照搬服装图或姿势图的灰白人台材质。')
+  }
+  for (const reference of workflowImages.filter((image) => image.role !== 'character_sheet')) {
+    clauses.push(`• 工作流参考：参考图${idx}（${reference.name || '补充参考'}）中的相关元素，具体用途以工作流要求为准。`)
+    idx++
+  }
+  for (const extra of recipe.extraImages || []) {
+    clauses.push(`• 附加参考：融合图${idx}（${extra.name || '补充元素'}）中的元素、配饰、背景或光影细节。`)
+    idx++
+  }
+
+  if (clauses.length === 0) {
+    return '请先选择角色/服装/姿势或上传附加参考图。'
+  }
+
+  const lines = [
+    `请根据${workflowImages.some((image) => image.role === 'character_sheet') ? '提供的角色设定参考' : `提供的 ${idx - 1} 张参考图`}，生成一张完整的${faceless ? '人物穿搭展示图' : isPhoto ? '真实人物照片' : '人物图像'}：`,
+    ...clauses,
+  ]
+  if (styleInfo.prompt) {
+    lines.push(`• 风格：${styleInfo.prompt} ${faceless ? '人物比例协调，手部自然，脸部无五官，光影统一。' : '人物比例协调，手部与五官自然，光影统一。'}`)
+  }
+  lines.push('画面中没有任何文字、标志或水印。')
+  return lines.join('\n')
+}
+
+// 換裝提示詞：主體形象（含固有強調＋表情）＋裝飾自上而下。翼可選不做否定強調。
+function buildDressupPrompt(recipe: RecipeState, stylePreset: string, workflowImages: ExtraReferenceImage[]): string {
+  const dressup = recipe.dressup
+  if (!dressup) return buildLegacyPrompt(recipe, stylePreset, workflowImages)
+  const styleInfo = STYLE_PRESETS[stylePreset] ?? STYLE_PRESETS.realistic
+  const isPhoto = PHOTO_STYLES.has(stylePreset)
+  const clauses: string[] = []
+  let idx = 1
+  let costumeIdx = 0
+
+  const fixed = [...dressup.inherent, ...(dressup.wingsOn ? dressup.wings : []), ...(dressup.hairOn ? dressup.hair : [])]
+  const hasPortrait = Boolean(dressup.subjectView || dressup.expression || fixed.length)
+  const decorations = dressup.slots.flatMap((s) => s.items)
+  const hasCostume = decorations.length > 0
+  const faceless = !hasPortrait && !workflowImages.some((image) => image.role === 'character_sheet') && hasCostume && Boolean(recipe.pose)
+
+  workflowImages.filter((image) => image.role === 'character_sheet').forEach(() => {
+    clauses.push('• 角色设定参考：提供的设定集展示同一角色的多个视角与细节，不是多个不同人物。保持角色的脸型、五官、发型、发色、肤色及服装配饰一致；只把它作为角色参考，成品布局遵循当前工作流的输出设置。')
+    idx++
+  })
+
+  if (hasPortrait) {
+    const skin = '人物的肤色必须与图一人物一致，所有裸露皮肤（包括服装镂空处露出的皮肤）必须与脸部肤色统一，统一后的肤色与质感按风格要求呈现。'
+    const cname = dressup.subjectView?.角色名 || dressup.subjectView?.发长
+    const parts: string[] = []
+    if (dressup.expression) parts.push(`表情：${dressup.expression.发型名称 || dressup.expression.标题}`)
+    const inherentClause = buildInherentClause(fixed.map((i) => i.服装名称))
+    clauses.push(
+      `• 角色：以图${idx}中的角色为原型，保持其脸型、五官、发型、发色与肤色一致${cname ? `（角色：${cname}）` : ''}${parts.length ? `（${parts.join('；')}）` : ''}。${skin}${inherentClause}图${idx}只确定角色本体（肉体）。`
+    )
+    idx++
+  }
+
+  if (hasCostume) {
+    costumeIdx = idx
+    const slotDesc = dressup.slots
+      .filter((s) => s.items.length > 0)
+      .map((s) => `${s.slotLabel}：${s.items.map((i) => i.服装名称).join('、')}`)
+      .join('；')
+    clauses.push(
+      `• 服装：让人物穿上图${idx}中已拼合为一套的服饰，逐件覆盖身体对应部位（自上而下：${slotDesc}）。每件单品的颜色、款式、面料与配饰都以图${idx}为准，名称仅作辅助说明。`
     )
     idx++
   }
@@ -429,22 +554,33 @@ function buildRecipeCardList(recipe: RecipeState): Array<{ tag: string; sub: str
 }
 
 function stitchCards(list: Array<{ tag: string; sub: string; src: string }>): Promise<string> {
-  const cardW = 480
-  const cardH = 640
   const pad = 20
   const headH = 62
   return Promise.all(list.map((x) => loadImage(x.src))).then((imgs) => {
+    // 依實際圖片的中位長寬比決定「共用 cell 尺寸」：所有元素保持等大（uniform grid）以利模型解析為 N 張獨立參考圖，
+    // 同時貼近真實長寬比以減少 letterbox 留白（不裁切內容，避免切掉髮尾/翼/尾等邊緣特徵）。
+    const aspects = imgs.map((i) => i.width / i.height).sort((a, b) => a - b)
+    const medianAspect = aspects[Math.floor(aspects.length / 2)] || 0.75
+    const aspect = Math.min(1.4, Math.max(0.6, medianAspect))
+    const cardW = 480
+    const cardH = Math.round(cardW / aspect)
+
+    // 田字格：盡可能接近正方形的矩形網格，避免橫排扁圖（生圖模型下採樣時，近正方形能保留更多單圖細節）
+    const cols = Math.max(1, Math.ceil(Math.sqrt(list.length)))
+    const rows = Math.ceil(list.length / cols)
     const canvas = document.createElement('canvas')
-    canvas.width = list.length * cardW + (list.length + 1) * pad
-    canvas.height = cardH + headH + pad * 2
+    canvas.width = cols * cardW + (cols + 1) * pad
+    canvas.height = rows * (cardH + headH) + (rows + 1) * pad
     const ctx = canvas.getContext('2d')!
 
     ctx.fillStyle = '#111318'
     ctx.fillRect(0, 0, canvas.width, canvas.height)
 
     imgs.forEach((img, i) => {
-      const x = pad + i * (cardW + pad)
-      const y = pad
+      const col = i % cols
+      const row = Math.floor(i / cols)
+      const x = pad + col * (cardW + pad)
+      const y = pad + row * (cardH + headH + pad)
       ctx.fillStyle = '#1e222b'
       ctx.fillRect(x, y, cardW, cardH + headH)
       ctx.fillStyle = '#f4f5f7'
@@ -466,6 +602,52 @@ function stitchCards(list: Array<{ tag: string; sub: string; src: string }>): Pr
 
     return canvas.toDataURL('image/jpeg', 0.92)
   })
+}
+
+/** 視圖排序：正面 → 側面 → 背面（資料用「左側」標記側視圖） */
+function viewOrder(v: PortraitItem): number {
+  const text = `${v.标题}${v.id}`
+  if (text.includes('正面')) return 0
+  if (text.includes('侧面') || text.includes('側面') || text.includes('左侧') || text.includes('左側')) return 1
+  if (text.includes('背面')) return 2
+  return 3
+}
+
+/** 把角色形象拼成一張參考圖：sheet=false 時＝正面＋固有；sheet=true 時＝三視圖＋固有。固有件（耳/尾）不可分割。 */
+export async function buildCharacterPortrait(
+  views: PortraitItem[],
+  inherentParts: CostumeItem[],
+  characterName: string,
+  sheet: boolean
+): Promise<PortraitItem | null> {
+  if (!views.length && !inherentParts.length) return null
+  const ordered = [...views].sort((a, b) => viewOrder(a) - viewOrder(b))
+  const anchor = ordered[0] ?? costumeToPortraitAnchor(inherentParts[0])
+  if (!anchor) return null
+  const labels = ['正面', '側面', '背面']
+  const viewsToUse = sheet ? ordered : ordered.slice(0, 1)
+  const parts: Array<{ tag: string; sub: string; src: string }> = viewsToUse.map((v, i) => ({
+    tag: labels[i] ?? `視角${i + 1}`,
+    sub: v.发型名称 || v.标题,
+    src: v.原图 || v.缩略图,
+  }))
+  for (const inc of inherentParts) {
+    parts.push({ tag: '固有', sub: inc.服装名称, src: inc.预览图 || inc.原图 || inc.缩略图 })
+  }
+  if (!parts.length) return null
+  const src = await stitchCards(parts)
+  return {
+    ...anchor,
+    id: `${anchor.角色 ?? 'aichan'}/${sheet ? '三视图合成' : '形象合成'}`,
+    分区: sheet ? '三视图合成' : '形象合成',
+    发型名称: characterName,
+    标题: sheet ? `${characterName} 三视图` : `${characterName} 形象`,
+    角色名: characterName,
+    固有: inherentParts.map((i) => i.服装名称),
+    缩略图: src,
+    原图: src,
+    sheet,
+  }
 }
 
 function costumeToPortraitAnchor(c?: CostumeItem): PortraitItem | null {
@@ -533,8 +715,69 @@ export async function resolveSubfieldRecipe(recipe: RecipeState): Promise<Recipe
   }
 }
 
+// 換裝：把 DressupState 編譯為既有 3 圖模型（形象圖 = 主體三视图 + 固有 + 表情；服飾圖 = 選中裝飾）
+async function resolveDressupPortraitImage(dressup: DressupState): Promise<PortraitItem | null | undefined> {
+  const fixed = [...dressup.inherent, ...(dressup.wingsOn ? dressup.wings : []), ...(dressup.hairOn ? dressup.hair : [])]
+  if (!dressup.subjectView && !dressup.expression && fixed.length === 0) return undefined
+  const parts: Array<{ tag: string; sub: string; src: string }> = [
+    ...(dressup.subjectView
+      ? [{ tag: '主體', sub: dressup.subjectView.发型名称 || dressup.subjectView.标题, src: dressup.subjectView.原图 || dressup.subjectView.缩略图 }]
+      : []),
+    ...(dressup.expression
+      ? [{ tag: '表情', sub: dressup.expression.发型名称 || dressup.expression.标题, src: dressup.expression.原图 || dressup.expression.缩略图 }]
+      : []),
+    ...fixed.map((i) => ({ tag: '固有', sub: i.服装名称, src: i.预览图 || i.原图 || i.缩略图 })),
+  ]
+  const anchor = dressup.subjectView ?? dressup.expression ?? costumeToPortraitAnchor(fixed[0])
+  if (!anchor) return null
+  const src = await stitchCards(parts)
+  return { ...anchor, 原图: src, 缩略图: src }
+}
+
+async function resolveDressupCostumeImage(dressup: DressupState): Promise<CostumeItem | null | undefined> {
+  const items = dressup.slots.flatMap((s) => s.items)
+  if (!items.length) return undefined
+  const parts = items.map((i) => ({
+    tag: i.分类 || '配饰',
+    sub: i.服装名称,
+    src: i.预览图 || i.原图 || i.缩略图,
+  }))
+  const anchor = items[0]
+  const src = await stitchCards(parts)
+  return {
+    ...anchor,
+    预览图: src,
+    原图: src,
+    缩略图: src,
+    服装名称: items.map((i) => i.服装名称).join('；'),
+  }
+}
+
+export async function resolveDressupRecipe(recipe: RecipeState): Promise<RecipeState> {
+  const dressup = recipe.dressup
+  if (!dressup) return recipe
+  const [portrait, costume] = await Promise.all([resolveDressupPortraitImage(dressup), resolveDressupCostumeImage(dressup)])
+  return {
+    ...recipe,
+    ...(portrait !== undefined ? { portrait } : {}),
+    ...(costume !== undefined ? { costume } : {}),
+  }
+}
+
+// 換裝：僅把 DressupState 解析為「形象圖 / 服飾圖」兩張複合參考圖（不含姿勢，姿勢沿用 recipe.pose）
+export async function resolveDressupImages(
+  dressup: DressupState
+): Promise<{ portrait: PortraitItem | null | undefined; costume: CostumeItem | null | undefined }> {
+  const [portrait, costume] = await Promise.all([resolveDressupPortraitImage(dressup), resolveDressupCostumeImage(dressup)])
+  return { portrait, costume }
+}
+
 export async function stitchRecipeCanvas(recipe: RecipeState, useSubfields = false): Promise<string> {
-  const resolved = useSubfields ? await resolveSubfieldRecipe(recipe) : recipe
+  const resolved = useSubfields
+    ? recipe.dressup
+      ? await resolveDressupRecipe(recipe)
+      : await resolveSubfieldRecipe(recipe)
+    : recipe
   const list = buildRecipeCardList(resolved)
   if (!list.length) {
     throw new Error('请至少选择或上传 1 张参考图')

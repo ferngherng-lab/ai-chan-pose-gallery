@@ -43,11 +43,11 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        {navGroups.filter((g) => g.id !== 'legacy' || showLegacyLibraries).map((group) => (
+        {navGroups.map((group) => (
           <SidebarGroup key={group.label}>
             <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
             <SidebarMenu>
-              {group.items.map((item) => (
+              {group.items.filter((item) => !item.legacy || showLegacyLibraries).map((item) => (
                 <SidebarMenuItem key={item.to}>
                   <SidebarMenuButton asChild isActive={item.to === active} tooltip={item.title}>
                     <Link to={item.to}>

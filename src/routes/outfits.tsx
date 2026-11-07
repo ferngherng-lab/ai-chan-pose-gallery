@@ -1,8 +1,7 @@
 import { ZoomViewport } from '@/components/common/ZoomViewport'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
-  CheckIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   CopyIcon,
@@ -11,59 +10,72 @@ import {
   PlusIcon,
   RotateCcwIcon,
   SearchIcon,
+  Wand2Icon,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from '@/lib/notifications'
-import { aichanCostumesQuery } from '@/api/gallery'
+import { aichanCharactersQuery, aichanCostumesQuery, isNsfwCostume } from '@/api/gallery'
 import { EmptyState } from '@/components/common/EmptyState'
 import { PageHeader } from '@/components/common/PageHeader'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { referenceImageUrl } from '@/lib/recipeImages'
 import { useStudio } from '@/store/studioStore'
+import type { CostumeItem } from '@/types/gallery'
 
 export const Route = createFileRoute('/outfits')({
-  staticData: { title: '服装·配饰' },
-  loader: ({ context }) => context.queryClient.ensureQueryData(aichanCostumesQuery),
+  staticData: { title: 'aichan 服裝配飾' },
+  loader: ({ context }) =>
+    Promise.all([
+      context.queryClient.ensureQueryData(aichanCostumesQuery),
+      context.queryClient.ensureQueryData(aichanCharactersQuery),
+    ]),
   pendingComponent: () => <Skeleton className="h-[540px] rounded-[22px]" />,
   component: OutfitsPage,
 })
 
 function OutfitsPage() {
   const { data: costumes } = useSuspenseQuery(aichanCostumesQuery)
-  const { recipe, toggleCostume } = useStudio()
+  const { data: chars } = useSuspenseQuery(aichanCharactersQuery)
+  const { safeMode, requestUnlockNsfw } = useStudio()
+  const navigate = useNavigate()
 
   const [category, setCategory] = useState('')
-  const [character, setCharacter] = useState('all')
+  const [brand, setBrand] = useState('')
   const [query, setQuery] = useState('')
   const [shown, setShown] = useState(60)
   const [viewerIndex, setViewerIndex] = useState<number | null>(null)
 
-  const categories = useMemo(() => [...new Set(costumes.map((x) => x.分类))], [costumes])
+  // 品牌（廠商）映射：角色 key → 品牌
+  const brandOf = useMemo(() => {
+    const map = new Map<string, string>(chars.map((c) => [c.key, c.品牌 || '其他']))
+    return (item: CostumeItem) => map.get(item.角色 ?? '') ?? '其他'
+  }, [chars])
 
-  const characters = useMemo(
-    () =>
-      [...new Set(costumes.map((c) => c.角色名).filter((x): x is string => Boolean(x)))].sort((a, b) =>
-        a.localeCompare(b, 'zh-CN')
-      ),
-    [costumes]
+  // 安全模式：隱藏 18+ 敏感配飾
+  const baseCostumes = useMemo(
+    () => costumes.filter((item) => !safeMode || !isNsfwCostume(item)),
+    [costumes, safeMode]
   )
+  const hiddenNsfwCount = useMemo(() => costumes.filter((item) => isNsfwCostume(item)).length, [costumes])
+
+  const categories = useMemo(() => [...new Set(baseCostumes.map((x) => x.分类))], [baseCostumes])
+  const brands = useMemo(() => [...new Set(baseCostumes.map((x) => brandOf(x)))], [baseCostumes, brandOf])
 
   const q = query.trim().toLowerCase()
 
   const filtered = useMemo(() => {
-    return costumes.filter((item) => {
+    return baseCostumes.filter((item) => {
       if (category && item.分类 !== category) return false
-      if (character !== 'all' && item.角色名 !== character) return false
+      if (brand && brandOf(item) !== brand) return false
       if (q && !item.检索.toLowerCase().includes(q)) return false
       return true
     })
-  }, [costumes, category, character, q])
+  }, [baseCostumes, category, brand, q, brandOf])
 
   const currentItem = viewerIndex !== null ? filtered[viewerIndex] : null
 
@@ -77,9 +89,12 @@ function OutfitsPage() {
     return () => window.removeEventListener('keydown', onKey)
   }, [viewerIndex, filtered.length])
 
+  const goDressup = (item: CostumeItem) =>
+    navigate({ to: '/dressup', search: { apply: item.角色 } })
+
   return (
     <>
-      <PageHeader title="服装·配饰" />
+      <PageHeader title="aichan 服裝配飾" />
 
       {/* 分类筛选药丸 */}
       <div className="flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:pb-0">
@@ -94,10 +109,10 @@ function OutfitsPage() {
             category === '' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'
           )}
         >
-          全部配饰 ({costumes.length})
+          全部配饰 ({baseCostumes.length})
         </button>
         {categories.map((c) => {
-          const cnt = costumes.filter((x) => x.分类 === c).length
+          const cnt = baseCostumes.filter((x) => x.分类 === c).length
           return (
             <button
               key={c}
@@ -115,10 +130,60 @@ function OutfitsPage() {
             </button>
           )
         })}
+        {safeMode && hiddenNsfwCount > 0 && (
+          <button
+            type="button"
+            onClick={() =>
+              requestUnlockNsfw(() => {
+                setCategory('')
+                setShown(60)
+              })
+            }
+            className="shrink-0 rounded-full border border-dashed border-rose-500/40 bg-rose-500/5 px-3.5 py-1.5 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-500/10 dark:text-rose-400"
+          >
+            🔒 解锁 18+ 敏感配饰 ({hiddenNsfwCount})
+          </button>
+        )}
       </div>
 
-      {/* 搜索与角色筛选栏 */}
-      <div className="grid gap-3 rounded-[22px] bg-muted p-4 @xl/main:grid-cols-2 @3xl/main:grid-cols-[minmax(0,1fr)_260px_auto]">
+      {/* 品牌（廠商）筛选药丸 */}
+      <div className="flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:pb-0">
+        <button
+          type="button"
+          onClick={() => {
+            setBrand('')
+            setShown(60)
+          }}
+          className={cn(
+            'shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors',
+            brand === '' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'
+          )}
+        >
+          全部品牌 ({brands.length})
+        </button>
+        {brands.map((b) => {
+          const cnt = baseCostumes.filter((x) => brandOf(x) === b).length
+          return (
+            <button
+              key={b}
+              type="button"
+              onClick={() => {
+                setBrand(brand === b ? '' : b)
+                setShown(60)
+              }}
+              className={cn(
+                'shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors',
+                brand === b ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'
+              )}
+            >
+              {b} ({cnt})
+            </button>
+          )
+        })}
+      </div>
+
+      {/* 搜索与重置 */}
+      <div className="grid gap-3 rounded-[22px] bg-muted p-4 @xl/main:grid-cols-[minmax(0,1fr)_auto]">
         <div className="relative">
           <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -131,34 +196,13 @@ function OutfitsPage() {
             className="bg-background pl-9"
           />
         </div>
-
-        <Select
-          value={character}
-          onValueChange={(v) => {
-            setCharacter(v)
-            setShown(60)
-          }}
-        >
-          <SelectTrigger className="w-full bg-background">
-            <SelectValue placeholder="全部 AI 娘角色" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">全部 AI 娘角色 ({characters.length})</SelectItem>
-            {characters.map((c) => (
-              <SelectItem key={c} value={c}>
-                {c}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
         <Button
           variant="ghost"
           size="sm"
           className="h-9"
           onClick={() => {
             setCategory('')
-            setCharacter('all')
+            setBrand('')
             setQuery('')
             setShown(60)
           }}
@@ -172,57 +216,51 @@ function OutfitsPage() {
         <EmptyState title="没有找到匹配的服装配饰" description="试试更换搜索词或切换分类" />
       ) : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-          {filtered.slice(0, shown).map((item, idx) => {
-            const picked = recipe.costume?.id === item.id
-            return (
+          {filtered.slice(0, shown).map((item, idx) => (
+            <div
+              key={item.id}
+              className="group flex flex-col overflow-hidden rounded-[20px] bg-muted p-2 transition hover:-translate-y-0.5 hover:shadow-md"
+            >
               <div
-                key={item.id}
-                className="group flex flex-col overflow-hidden rounded-[20px] bg-muted p-2 transition hover:-translate-y-0.5 hover:shadow-md"
+                onClick={() => setViewerIndex(idx)}
+                className="relative aspect-4/5 cursor-zoom-in overflow-hidden rounded-2xl bg-white"
               >
-                <div
-                  onClick={() => setViewerIndex(idx)}
-                  className="relative aspect-4/5 cursor-zoom-in overflow-hidden rounded-2xl bg-white"
-                >
-                  <img
-                    src={referenceImageUrl(item.缩略图)}
-                    alt={item.服装名称}
-                    loading="lazy"
-                    className="h-full w-full object-contain transition duration-300 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-x-2 top-2 flex items-center justify-between gap-1">
-                    <span className="rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-bold text-white">
-                      {item.分类}
-                    </span>
-                    <span className="max-w-[60%] truncate rounded-md bg-white/90 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-900">
-                      {item.角色名}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      toggleCostume(item)
-                    }}
-                    className={cn(
-                      'absolute bottom-2 left-2 flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-semibold text-white shadow transition',
-                      picked ? 'bg-emerald-600' : 'bg-black/75 hover:bg-primary'
-                    )}
-                  >
-                    {picked ? <CheckIcon className="size-3" /> : <PlusIcon className="size-3" />}
-                    {picked ? '已选' : '加入配方'}
-                  </button>
+                <img
+                  src={referenceImageUrl(item.缩略图)}
+                  alt={item.服装名称}
+                  loading="lazy"
+                  className="h-full w-full object-contain transition duration-300 group-hover:scale-105"
+                />
+                <div className="absolute inset-x-2 top-2 flex items-center justify-between gap-1">
+                  <span className="rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                    {item.分类}
+                  </span>
+                  <span className="max-w-[60%] truncate rounded-md bg-white/90 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-900">
+                    {brandOf(item)}
+                  </span>
                 </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    goDressup(item)
+                  }}
+                  className="absolute bottom-2 left-2 flex items-center gap-1 rounded-lg bg-black/75 px-2.5 py-1 text-[11px] font-semibold text-white shadow transition hover:bg-primary"
+                >
+                  <PlusIcon className="size-3" />
+                  加入配方
+                </button>
+              </div>
 
-                <div className="px-1.5 pt-2.5 pb-1">
-                  <div className="line-clamp-2 min-h-[34px] text-xs leading-snug font-semibold">{item.服装名称}</div>
-                  <div className="mt-1 flex items-center justify-between font-mono text-[10px] text-muted-foreground">
-                    <span className="truncate">{item.id.split('/').pop()}</span>
-                    <span>CC BY-NC-SA</span>
-                  </div>
+              <div className="px-1.5 pt-2.5 pb-1">
+                <div className="line-clamp-2 min-h-[34px] text-xs leading-snug font-semibold">{item.服装名称}</div>
+                <div className="mt-1 flex items-center justify-between font-mono text-[10px] text-muted-foreground">
+                  <span className="truncate">{item.角色名}</span>
+                  <span>CC BY-NC-SA</span>
                 </div>
               </div>
-            )
-          })}
+            </div>
+          ))}
         </div>
       )}
 
@@ -237,95 +275,93 @@ function OutfitsPage() {
       {/* 详情弹窗 */}
       <Dialog open={viewerIndex !== null} onOpenChange={(o) => !o && setViewerIndex(null)}>
         <DialogContent className="max-h-[90dvh] w-[95vw] max-w-4xl overflow-y-auto p-0 sm:max-w-4xl">
-          {currentItem && viewerIndex !== null && (() => {
-            const picked = recipe.costume?.id === currentItem.id
-            return (
-              <div className="grid md:grid-cols-[1fr_320px]">
-                <div className="relative flex max-h-[78dvh] min-h-[min(380px,65dvh)] items-center justify-center bg-muted/60 p-4">
-                  <ZoomViewport imageUrl={referenceImageUrl(currentItem.预览图 || currentItem.原图)} alt={currentItem.服装名称} className="min-h-0 h-[58dvh]" />
-                  <Button
-                    variant="secondary"
-                    size="icon"
-                    aria-label="上一张图片" className="absolute top-1/2 left-3 min-h-11 min-w-11 -translate-y-1/2 rounded-full shadow"
-                    onClick={() => setViewerIndex((viewerIndex - 1 + filtered.length) % filtered.length)}
-                  >
-                    <ChevronLeftIcon className="size-4" />
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="icon"
-                    aria-label="下一张图片" className="absolute top-1/2 right-3 min-h-11 min-w-11 -translate-y-1/2 rounded-full shadow"
-                    onClick={() => setViewerIndex((viewerIndex + 1) % filtered.length)}
-                  >
-                    <ChevronRightIcon className="size-4" />
-                  </Button>
-                </div>
+          {currentItem && viewerIndex !== null && (() => (
+            <div className="grid md:grid-cols-[1fr_320px]">
+              <div className="relative flex max-h-[78dvh] min-h-[min(380px,65dvh)] items-center justify-center bg-muted/60 p-4">
+                <ZoomViewport imageUrl={referenceImageUrl(currentItem.预览图 || currentItem.原图)} alt={currentItem.服装名称} className="min-h-0 h-[58dvh]" />
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  aria-label="上一张图片" className="absolute top-1/2 left-3 min-h-11 min-w-11 -translate-y-1/2 rounded-full shadow"
+                  onClick={() => setViewerIndex((viewerIndex - 1 + filtered.length) % filtered.length)}
+                >
+                  <ChevronLeftIcon className="size-4" />
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  aria-label="下一张图片" className="absolute top-1/2 right-3 min-h-11 min-w-11 -translate-y-1/2 rounded-full shadow"
+                  onClick={() => setViewerIndex((viewerIndex + 1) % filtered.length)}
+                >
+                  <ChevronRightIcon className="size-4" />
+                </Button>
+              </div>
 
-                <div className="flex flex-col justify-between gap-4 border-t p-5 md:border-t-0 md:border-l">
-                  <div className="space-y-4">
-                    <DialogHeader>
-                      <div className="flex items-center gap-2">
-                        <Badge>{currentItem.分类}</Badge>
-                        <Badge variant="outline">{currentItem.角色名}</Badge>
-                      </div>
-                      <DialogTitle className="mt-2 text-base leading-snug">{currentItem.服装名称}</DialogTitle>
-                      <p className="text-xs text-muted-foreground">来源：{currentItem.来源 || 'AI 娘设定图（ai-chan-sheets）'}</p>
-                    </DialogHeader>
-
-                    <div className="flex items-center justify-between rounded-lg bg-muted px-2.5 py-1.5 font-mono text-xs">
-                      <span className="truncate">{currentItem.id}</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          void navigator.clipboard.writeText(currentItem.id)
-                          toast.success('已复制配饰 ID')
-                        }}
-                        className="ml-2 shrink-0 text-primary hover:underline"
-                      >
-                        <CopyIcon className="size-3.5" />
-                      </button>
+              <div className="flex flex-col justify-between gap-4 border-t p-5 md:border-t-0 md:border-l">
+                <div className="space-y-4">
+                  <DialogHeader>
+                    <div className="flex items-center gap-2">
+                      <Badge>{currentItem.分类}</Badge>
+                      <Badge variant="outline">{currentItem.角色名}</Badge>
+                      <Badge variant="outline">{brandOf(currentItem)}</Badge>
                     </div>
+                    <DialogTitle className="mt-2 text-base leading-snug">{currentItem.服装名称}</DialogTitle>
+                    <p className="text-xs text-muted-foreground">来源：{currentItem.来源 || 'AI 娘设定图（ai-chan-sheets）'}</p>
+                  </DialogHeader>
 
-                    <div>
-                      <div className="mb-1.5 text-xs font-medium text-muted-foreground">标签</div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {(currentItem.标签 || []).map((t) => (
-                          <Badge key={t} variant="secondary" className="text-xs">
-                            {t}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
+                  <div className="flex items-center justify-between rounded-lg bg-muted px-2.5 py-1.5 font-mono text-xs">
+                    <span className="truncate">{currentItem.id}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void navigator.clipboard.writeText(currentItem.id)
+                        toast.success('已复制配饰 ID')
+                      }}
+                      className="ml-2 shrink-0 text-primary hover:underline"
+                    >
+                      <CopyIcon className="size-3.5" />
+                    </button>
+                  </div>
 
-                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-2.5 py-2 text-xs text-amber-600 dark:text-amber-400">
-                      CC BY-NC-SA 4.0 · 非商业使用 · 署名 ai-chan-sheets
+                  <div>
+                    <div className="mb-1.5 text-xs font-medium text-muted-foreground">标签</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {(currentItem.标签 || []).map((t) => (
+                        <Badge key={t} variant="secondary" className="text-xs">
+                          {t}
+                        </Badge>
+                      ))}
                     </div>
                   </div>
 
-                  <div className="flex flex-col gap-2">
-                    <Button onClick={() => toggleCostume(currentItem)} variant={picked ? 'secondary' : 'default'}>
-                      {picked ? <CheckIcon className="size-4" /> : <PlusIcon className="size-4" />}
-                      {picked ? '已在角色配方中（点击移除）' : '加入角色配方'}
+                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-2.5 py-2 text-xs text-amber-600 dark:text-amber-400">
+                    CC BY-NC-SA 4.0 · 非商业使用 · 署名 ai-chan-sheets
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <Button onClick={() => goDressup(currentItem)}>
+                    <Wand2Icon className="size-4" />
+                    加入配方（前往 aichan 換裝）
+                  </Button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button variant="outline" size="sm" asChild>
+                      <a href={referenceImageUrl(currentItem.原图)} download={`${currentItem.id.split('/').pop()}.png`}>
+                        <DownloadIcon className="size-3.5" />
+                        下载高清原图
+                      </a>
                     </Button>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Button variant="outline" size="sm" asChild>
-                        <a href={referenceImageUrl(currentItem.原图)} download={`${currentItem.id.split('/').pop()}.png`}>
-                          <DownloadIcon className="size-3.5" />
-                          下载高清原图
-                        </a>
-                      </Button>
-                      <Button variant="outline" size="sm" asChild>
-                        <a href={referenceImageUrl(currentItem.原图)} target="_blank" rel="noopener noreferrer">
-                          <ExternalLinkIcon className="size-3.5" />
-                          新窗口原图
-                        </a>
-                      </Button>
-                    </div>
+                    <Button variant="outline" size="sm" asChild>
+                      <a href={referenceImageUrl(currentItem.原图)} target="_blank" rel="noopener noreferrer">
+                        <ExternalLinkIcon className="size-3.5" />
+                        新窗口原图
+                      </a>
+                    </Button>
                   </div>
                 </div>
               </div>
-            )
-          })()}
+            </div>
+          ))()}
         </DialogContent>
       </Dialog>
     </>

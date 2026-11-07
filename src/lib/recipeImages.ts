@@ -48,6 +48,7 @@ export function recipeBackup(recipe: RecipeState): RecipeState {
     pose: recipe.pose?.source === 'upload' ? null : recipe.pose,
     advancedPortrait: recipe.advancedPortrait ?? null,
     advancedCostume: recipe.advancedCostume ?? null,
+    dressup: recipe.dressup ?? null,
     extraImages: [],
     workflowImages: {},
   }

@@ -39,6 +39,28 @@ function GuidePage() {
         </div>
       </Section>
 
+      <Section title="AI 娘（aichan）角色與配飾來源" className="@lg/section:grid-cols-1">
+        <div className="space-y-2.5 rounded-2xl bg-background p-4 text-xs leading-relaxed text-muted-foreground">
+          <p>
+            <strong className="text-foreground">• AI 娘擬人化角色：</strong>
+            本站「aichan 形象 / 服裝配飾 / 換裝」收錄 18 位 AI 娘（GPT 娘、DeepSeek 娘、Claude 娘、Gemini 娘、Kimi 娘、豆包 Seed 娘、文心一言娘、通義千問娘、MiniMax 娘、Grok 娘、MiMo 兔娘、LongCat 娘等）的設定圖、三視圖、表情與配飾素材。
+          </p>
+          <p>
+            <strong className="text-foreground">• 非官方聲明：</strong>
+            上述 AI 娘均為粉絲二次創作的擬人化形象，
+            <strong className="text-foreground">與 OpenAI / Google / Anthropic / DeepSeek / 智譜（GLM）/ 字節跳動 / 阿里巴巴 / 百度 / 月之暗面 / MiniMax / xAI / 小米 / 美團等實際公司及其產品無關</strong>
+            ，未獲任何官方授權或背書；相關名稱與商標權利均歸各自公司所有。
+          </p>
+          <p>
+            <strong className="text-foreground">• 資料來源與授權：</strong>
+            原始角色立繪出自 <strong className="text-foreground">ZipZipPipe</strong>，由{' '}
+            <a className="underline hover:text-foreground" href="https://github.com/lmy414/ai-chan-sheets" target="_blank" rel="noopener noreferrer">lmy414/ai-chan-sheets</a>{' '}
+            補全為橫版完整設定圖（三視圖 / 表情 / 服裝 / 道具，原生像素 1:1 拼接），遵循{' '}
+            <strong className="text-foreground">CC BY-NC-SA 4.0（署名－非商業性使用－相同方式共享）</strong>。本站僅作中文整理與前端學習存檔，請遵守非商業使用與署名要求。
+          </p>
+        </div>
+      </Section>
+
       <Section title="免责声明与合规使用规范（必读）" className="@lg/section:grid-cols-1">
         <div className="space-y-2.5 rounded-2xl bg-background p-4 text-xs leading-relaxed text-muted-foreground">
           <p>
@@ -70,6 +92,12 @@ function GuidePage() {
           <p>
             <strong className="text-foreground">• 二次元服装来源：</strong>
             440 套二次元服装源自 <a className="underline hover:text-foreground" href="https://charadb-2fi.pages.dev/" target="_blank" rel="noopener noreferrer">たき AI · CharaDB</a>（标签与名称遵循 CC0，图片从原站在线加载，仅供学习与生图参考，禁止用于真人/未成年人或将原图二次分发，详见 <a className="underline hover:text-foreground" href="https://github.com/taki-ttt/charadb/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">原作者说明</a>）。
+          </p>
+          <p>
+            <strong className="text-foreground">• AI 娘（aichan）来源：</strong>
+            18 位 AI 娘擬人化形象源自{' '}
+            <a className="underline hover:text-foreground" href="https://github.com/lmy414/ai-chan-sheets" target="_blank" rel="noopener noreferrer">lmy414/ai-chan-sheets</a>{' '}
+            （原作者 ZipZipPipe，CC BY-NC-SA 4.0 非商業）；均為粉絲二次創作的非官方擬人化，與對應 AI 公司無關。
           </p>
           <p>
             <strong className="text-foreground">• 使用与分发限制：</strong>

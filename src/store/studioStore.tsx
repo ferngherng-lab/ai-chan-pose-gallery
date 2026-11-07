@@ -24,6 +24,8 @@ import {
   generateCharacterImage,
   hasAdvancedBlocks,
   resumeComfyTask,
+  resolveDressupRecipe,
+  resolveDressupImages,
   resolveSubfieldRecipe,
   ComfyTaskError,
   ComfySubmissionRejectedError,
@@ -38,6 +40,7 @@ import type {
   CostumeBlock,
   CostumeItem,
   DoubaoParams,
+  DressupState,
   ExtraReferenceImage,
   GeminiParams,
   GenerationHistoryItem,
@@ -221,6 +224,8 @@ interface StudioContextValue {
   toggleSubfields: () => void
   setAdvancedPortrait: (patch: Partial<PortraitBlock>) => void
   setAdvancedCostume: (patch: Partial<CostumeBlock>) => void
+  setDressup: (dressup: DressupState | null) => void
+  resolvedDressup: { portrait: PortraitItem | null; costume: CostumeItem | null } | null
   poseDepthMode: boolean
   setPoseDepthMode: (val: boolean) => void
   toggleRecipePoseDepth: () => void
@@ -262,6 +267,12 @@ interface StudioContextValue {
 
 const StudioContext = createContext<StudioContextValue | null>(null)
 
+/** 舊版配方缺少後加的 hair/hairOn 欄位（髮型固有），載入時補齊預設值 */
+function normalizeDressup(d: DressupState | null | undefined): DressupState | null {
+  if (!d) return null
+  return { ...d, hair: d.hair ?? [], hairOn: d.hairOn ?? false }
+}
+
 export function StudioProvider({ children }: { children: ReactNode }) {
   const [recipe, setRecipe] = useState<RecipeState>(() => {
     try {
@@ -274,6 +285,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
         pose: parsed.pose ?? null,
         advancedPortrait: parsed.advancedPortrait ?? null,
         advancedCostume: parsed.advancedCostume ?? null,
+        dressup: normalizeDressup(parsed.dressup),
         extraImages: Array.isArray(parsed.extraImages) ? parsed.extraImages : [],
       }
     } catch {
@@ -373,6 +385,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
           pose: savedRecipe.pose ?? null,
           advancedPortrait: savedRecipe.advancedPortrait ?? null,
           advancedCostume: savedRecipe.advancedCostume ?? null,
+          dressup: normalizeDressup(savedRecipe.dressup),
           workflowImages: savedRecipe.workflowImages ?? {},
           workflowImagesIdentity: savedRecipe.workflowImagesIdentity,
           extraImages: Array.isArray(savedRecipe.extraImages) ? savedRecipe.extraImages : [],
@@ -482,6 +495,27 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       advancedCostume: { top: [], bottom: [], extras: [], ...r.advancedCostume, ...patch },
     }))
 
+  const setDressup = (dressup: DressupState | null) => setRecipe((r) => ({ ...r, dressup }))
+
+  // 換裝配方自動解析為「形象圖 / 服飾圖」兩張複合參考圖，供合成台「参考图组合」直接展示（自動拼圖）
+  const [resolvedDressup, setResolvedDressup] = useState<{ portrait: PortraitItem | null; costume: CostumeItem | null } | null>(null)
+  useEffect(() => {
+    const d = recipe.dressup
+    if (!useSubfields || !d) {
+      setResolvedDressup(null)
+      return
+    }
+    let cancelled = false
+    resolveDressupImages(d)
+      .then(({ portrait, costume }) => {
+        if (!cancelled) setResolvedDressup({ portrait: portrait ?? null, costume: costume ?? null })
+      })
+      .catch(() => {
+        if (!cancelled) setResolvedDressup(null)
+      })
+    return () => { cancelled = true }
+  }, [recipe.dressup, useSubfields])
+
   const setPoseDepthMode = (val: boolean) => {
     setPoseDepthModeState(val)
     setRecipe((r) => {
@@ -498,12 +532,26 @@ export function StudioProvider({ children }: { children: ReactNode }) {
 
   const togglePortrait = (item: PortraitItem) => {
     const remove = recipe.portrait?.id === item.id
-    setRecipe((r) => ({ ...r, portrait: remove ? null : item }))
-    toast.success(remove ? '已移除人像' : `已选人像：${item.发型名称}`)
+    // [37] 最後一次改動優先：選取人像/形象時，即時覆蓋既有的換裝與子欄位配置。
+    setRecipe((r) => ({
+      ...r,
+      portrait: remove ? null : item,
+      dressup: remove ? r.dressup : null,
+      advancedPortrait: remove ? r.advancedPortrait : null,
+      advancedCostume: remove ? r.advancedCostume : null,
+    }))
+    toast.success(remove ? '已移除人像' : `已选人像：${item.角色名 || item.发型名称}`)
   }
   const toggleCostume = (item: CostumeItem) => {
     const remove = recipe.costume?.id === item.id && (recipe.costume.selectedView || 'front') === (item.selectedView || 'front')
-    setRecipe((r) => ({ ...r, costume: remove ? null : item }))
+    // [37] 最後一次改動優先：選取服裝時，即時覆蓋既有的換裝與子欄位配置。
+    setRecipe((r) => ({
+      ...r,
+      costume: remove ? null : item,
+      dressup: remove ? r.dressup : null,
+      advancedPortrait: remove ? r.advancedPortrait : null,
+      advancedCostume: remove ? r.advancedCostume : null,
+    }))
     toast.success(remove ? '已移除服装' : `已选服装：${item.服装名称}`)
   }
   const togglePose = (item: PoseItem) => {
@@ -569,26 +617,56 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   }, [activeComfyParams, idbHydrated])
 
   const clearRecipe = () => {
-    setRecipe({ portrait: null, costume: null, pose: null, advancedPortrait: null, advancedCostume: null, extraImages: [] })
+    setRecipe({ portrait: null, costume: null, pose: null, advancedPortrait: null, advancedCostume: null, dressup: null, extraImages: [] })
     toast.success('已清空配方')
   }
 
   const randomizeRecipe = (pools: { portraits?: PortraitItem[]; costumes?: CostumeItem[]; poses?: PoseItem[] }) => {
+    // [46] 隨機三層優先級（鎖定範圍，按鈕位置功能皆服從原版，僅增加鎖定）：
+    //   第三層：aichan 配飾已設定 → 形象與配飾固定，僅姿勢隨機。
+    //   第二層：aichan 人像（無配飾）→ 形象固定，服裝 + 姿勢隨機。
+    //   第一層：原版人像 → 三元素全隨機（與原版完全相同）。
+    const portrait = recipe.portrait
     const posePool = safeMode ? (pools.poses || []).filter((p) => !isNsfwPose(p)) : pools.poses || []
-    const costumePool = (pools.costumes || []).filter((c) => !c.source && c.一级分类 !== '二次元' && (!safeMode || !isNsfwCostume(c)))
-    const portraitPool = pools.portraits || []
+    const originalPortraitPool = pools.portraits || []
+    const originalCostumePool = (pools.costumes || []).filter((c) => !c.source && c.一级分类 !== '二次元' && (!safeMode || !isNsfwCostume(c)))
 
+    const pickPose = () => (posePool.length ? { ...posePool[Math.floor(Math.random() * posePool.length)], useDepth: poseDepthMode } : null)
+    const pickCostume = () => (originalCostumePool.length ? originalCostumePool[Math.floor(Math.random() * originalCostumePool.length)] : null)
+
+    const hasAichanDecoration = Boolean(recipe.dressup)
+
+    if (hasAichanDecoration) {
+      // 第三層：aichan 配飾固定（換裝模式），僅姿勢隨機。
+      setRecipe((prev) => ({ ...prev, pose: pickPose() ?? prev.pose }))
+      toast.success('已隨機抽取姿勢（配飾固定）')
+      return
+    }
+
+    if (!portrait) {
+      toast.info('請先選擇人像')
+      return
+    }
+
+    if (portrait.source === 'aichan') {
+      // 第二層：aichan 形象固定，服裝 + 姿勢隨機。
+      setRecipe((prev) => ({
+        ...prev,
+        costume: pickCostume() ?? prev.costume,
+        pose: pickPose() ?? prev.pose,
+      }))
+      toast.success('已隨機抽取服裝與姿勢（aichan 形象固定）')
+      return
+    }
+
+    // 第一層：原版完全相同（人像 + 服裝 + 姿勢）。
     setRecipe((prev) => ({
       ...prev,
-      portrait: portraitPool.length
-        ? portraitPool[Math.floor(Math.random() * portraitPool.length)]
+      portrait: originalPortraitPool.length
+        ? originalPortraitPool[Math.floor(Math.random() * originalPortraitPool.length)]
         : prev.portrait,
-      costume: costumePool.length
-        ? costumePool[Math.floor(Math.random() * costumePool.length)]
-        : prev.costume,
-      pose: posePool.length
-        ? { ...posePool[Math.floor(Math.random() * posePool.length)], useDepth: poseDepthMode }
-        : prev.pose,
+      costume: pickCostume() ?? prev.costume,
+      pose: pickPose() ?? prev.pose,
     }))
     toast.success(safeMode ? '已随机抽取一套角色配方（安全模式）' : '已随机抽取一套角色配方')
   }
@@ -746,7 +824,11 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     const recipeSnapshot = recipe
     const configSnapshot = apiConfig
     const workflowImages = configSnapshot.activeProvider === 'comfyui' && recipeSnapshot.workflowImagesIdentity === workflowIdentity(configSnapshot.comfyuiParams.workflowJson) ? Object.values(recipeSnapshot.workflowImages || {}) : []
-    const effectiveRecipe = useSubfields && hasAdvancedBlocks(recipeSnapshot) ? await resolveSubfieldRecipe(recipeSnapshot) : recipeSnapshot
+    const effectiveRecipe = useSubfields && recipeSnapshot.dressup
+      ? await resolveDressupRecipe(recipeSnapshot)
+      : useSubfields && hasAdvancedBlocks(recipeSnapshot)
+        ? await resolveSubfieldRecipe(recipeSnapshot)
+        : recipeSnapshot
     const finalPrompt = overridePrompt ?? customPrompt ?? buildRecipePrompt(recipeSnapshot, configSnapshot.stylePreset, workflowImages, useSubfields)
     let record: ActiveTask = { prompt: finalPrompt, summary: [recipeSnapshot.portrait?.发型名称, recipeSnapshot.costume?.服装名称, recipeSnapshot.pose?.姿势名称].filter(Boolean).join(' + ') || '自定义合成' }
     isGeneratingRef.current = true
@@ -805,6 +887,8 @@ export function StudioProvider({ children }: { children: ReactNode }) {
         toggleSubfields,
         setAdvancedPortrait,
         setAdvancedCostume,
+        setDressup,
+        resolvedDressup,
         poseDepthMode,
         setPoseDepthMode,
         toggleRecipePoseDepth,

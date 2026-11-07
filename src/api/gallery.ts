@@ -1,5 +1,5 @@
 import { queryOptions } from '@tanstack/react-query'
-import type { CostumeItem, PortraitItem, PoseGroup, PoseItem } from '@/types/gallery'
+import type { AichanInherent, AichanSlotTaxonomy, CostumeItem, PortraitItem, PoseGroup, PoseItem } from '@/types/gallery'
 
 export const ANGLES = ['正面', '俯视', '仰视', '侧面', '斜侧'] as const
 
@@ -141,5 +141,25 @@ export const aichanCostumesQuery = queryOptions({
     const res = await fetch('/data/aichan-costume-zh.json')
     if (!res.ok) throw new Error(`加载 AI 娘配饰数据失败: HTTP ${res.status}`)
     return (await res.json()) as CostumeItem[]
+  },
+})
+
+export const aichanInherentQuery = queryOptions({
+  queryKey: ['gallery', 'aichan', 'inherent'],
+  staleTime: Infinity,
+  queryFn: async () => {
+    const res = await fetch('/data/aichan-inherent.json')
+    if (!res.ok) throw new Error(`加载 AI 娘固有数据失败: HTTP ${res.status}`)
+    return (await res.json()) as AichanInherent
+  },
+})
+
+export const aichanSlotTaxonomyQuery = queryOptions({
+  queryKey: ['gallery', 'aichan', 'slot-taxonomy'],
+  staleTime: Infinity,
+  queryFn: async () => {
+    const res = await fetch('/data/aichan-slot-taxonomy.json')
+    if (!res.ok) throw new Error(`加载 AI 娘槽位数据失败: HTTP ${res.status}`)
+    return (await res.json()) as AichanSlotTaxonomy
   },
 })

@@ -29,7 +29,11 @@ import {
 } from 'lucide-react'
 import { type ChangeEvent, type DragEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from '@/lib/notifications'
-import { costumesQuery, portraitsQuery, posesQuery } from '@/api/gallery'
+import {
+  costumesQuery,
+  portraitsQuery,
+  posesQuery,
+} from '@/api/gallery'
 import { Field, Section } from '@/components/common/FormSection'
 import { ComfyConnectionStatus } from '@/components/studio/ComfyConnectionStatus'
 import { WorkflowParameters } from '@/components/studio/WorkflowParameters'
@@ -79,6 +83,22 @@ export const Route = createFileRoute('/studio')({
 
 const PROVIDER_LIST: ImageProviderId[] = ['gemini', 'gpt', 'qwen', 'doubao', 'comfyui']
 
+function timestampForFilename(d = new Date()): string {
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`
+}
+
+function sanitizeFilename(s: string): string {
+  const cleaned = s.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80)
+  return cleaned || '未命名'
+}
+
+function fileExtension(url: string, fallback: string): string {
+  const m = url.match(/\.(png|jpe?g|webp)(?:$|\?)/i)
+  if (m) return m[1].toLowerCase() === 'jpeg' ? 'jpg' : m[1].toLowerCase()
+  return fallback
+}
+
 function StudioPage() {
   const {
     hydrated, activeTask, resumeGeneration, stopTracking,
@@ -96,6 +116,7 @@ function StudioPage() {
     setPortrait,
     setCostume,
     setPose,
+    resolvedDressup,
     toggleRecipePoseDepth,
     useSubfields,
     addExtraImage,
@@ -139,7 +160,13 @@ function StudioPage() {
   const [showUrlInput, setShowUrlInput] = useState(false)
   const [stitchModalUrl, setStitchModalUrl] = useState<string | null>(null)
   const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null)
+  const [zoomImageMeta, setZoomImageMeta] = useState<{ filename: string; title?: string } | null>(null)
   const [showComfyJsonModal, setShowComfyJsonModal] = useState(false)
+
+  const openZoom = (url: string, meta?: { filename: string; title?: string }) => {
+    setZoomImageUrl(url)
+    setZoomImageMeta(meta ?? { filename: `image-${timestampForFilename()}.png` })
+  }
   const [isDragging, setIsDragging] = useState(false)
   const [comfyCheck, setComfyCheck] = useState<(ComfyCheckResult & { info?: string }) | null>(null)
   const [checkingComfy, setCheckingComfy] = useState(false)
@@ -292,6 +319,22 @@ function StudioPage() {
   const extraImages = recipe.extraImages || []
   const hasStitchRefs = Boolean(recipe.portrait || recipe.costume || recipe.pose || extraImages.length > 0)
   const hasAnyRef = hasStitchRefs || activeWorkflowImages.length > 0
+
+  // 換裝與原版同等優先、互斥：存在 dressup 配方即以換裝模式展示（三圖自動拼圖，分別顯示）
+  const isDressup = Boolean(recipe.dressup)
+  const dressup = recipe.dressup
+
+  // 形象圖下載名：拼圖各元素（主體＋表情＋固有[＋翼]）以「＋」串接
+  const dressupPortraitName = (() => {
+    if (!dressup) return '形象'
+    const fixed = [...dressup.inherent, ...(dressup.wingsOn ? dressup.wings : []), ...(dressup.hairOn ? dressup.hair : [])]
+    const parts = [
+      dressup.subjectView ? (dressup.subjectView.角色名 || dressup.subjectView.发型名称 || dressup.subjectView.标题) : '',
+      dressup.expression ? (dressup.expression.发型名称 || dressup.expression.标题) : '',
+      ...fixed.map((i) => i.服装名称),
+    ].filter(Boolean)
+    return parts.join('＋') || '形象'
+  })()
 
   const processFiles = async (files: File[]) => {
     const imgFiles = files.filter((f) => f.type.startsWith('image/'))
@@ -462,7 +505,7 @@ function StudioPage() {
                   <DicesIcon className="size-3.5" />
                   随机
                 </Button>
-                {hasAnyRef && hasStitchRefs && (
+                {!isDressup && hasAnyRef && hasStitchRefs && (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -483,7 +526,92 @@ function StudioPage() {
                 请先选择或上传：{missingReferences.join('、')}。这些槽位已绑定工作流节点。
               </div>
             )}
+            {/* 換裝模式：形象圖 / 服飾圖 / 姿勢 三張參考圖已自動拼圖，各自分開展示 */}
+            {isDressup && (
+              <div className="grid min-w-0 grid-cols-1 gap-2 @min-[42rem]/section:grid-cols-3">
+                {/* 形象槽 */}
+                <div className="relative flex min-w-0 flex-wrap items-start gap-2.5 rounded-xl bg-background p-2.5">
+                  {resolvedDressup?.portrait ? (
+                    <>
+                      <button type="button" aria-label="放大形象参考图" className="shrink-0 cursor-zoom-in overflow-hidden rounded-lg transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-ring" onClick={() => {
+                      const url = referenceImageUrl(resolvedDressup.portrait!.原图 || resolvedDressup.portrait!.缩略图)
+                      openZoom(url, { filename: `${timestampForFilename()}_形象_${sanitizeFilename(dressupPortraitName)}.jpg`, title: '形象 · 参考图' })
+                    }}>
+                        <img src={referenceImageUrl(resolvedDressup.portrait.缩略图)} alt="形象" className="h-12 w-10 shrink-0 rounded-lg object-cover" />
+                      </button>
+                      <div className="flex min-h-12 min-w-0 flex-1 flex-col justify-between gap-1">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="shrink-0 text-[11px] text-muted-foreground">形象</span>
+                          <Link to="/dressup" search={{ subject: dressup?.subject ?? '' }} className="shrink-0 text-[11px] text-primary hover:underline">調整</Link>
+                        </div>
+                        <div className="line-clamp-2 text-xs font-medium leading-snug" title={resolvedDressup.portrait.角色名 || resolvedDressup.portrait.发型名称 || resolvedDressup.portrait.标题}>
+                          {resolvedDressup.portrait.角色名 || resolvedDressup.portrait.发型名称 || resolvedDressup.portrait.标题}
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <Link to="/dressup" search={{ subject: dressup?.subject ?? '' }} className="flex min-h-12 min-w-0 flex-1 items-center gap-2 rounded-lg text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">
+                      <div className="flex h-10 w-8 shrink-0 items-center justify-center rounded-lg bg-muted"><UserRoundIcon className="size-4" /></div>
+                      <span className="truncate text-xs">+ 選主體</span>
+                    </Link>
+                  )}
+                </div>
+
+                {/* 服飾槽 */}
+                <div className="relative flex min-w-0 flex-wrap items-start gap-2.5 rounded-xl bg-background p-2.5">
+                  {resolvedDressup?.costume ? (
+                    <>
+                      <button type="button" aria-label="放大服飾参考图" className="shrink-0 cursor-zoom-in overflow-hidden rounded-lg transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-ring" onClick={() => {
+                      const url = referenceImageUrl(resolvedDressup.costume!.预览图 || resolvedDressup.costume!.原图 || resolvedDressup.costume!.缩略图)
+                      openZoom(url, { filename: `${timestampForFilename()}_服飾_${sanitizeFilename(resolvedDressup.costume!.服装名称)}.jpg`, title: '服飾 · 参考图' })
+                    }}>
+                        <img src={referenceImageUrl(resolvedDressup.costume.缩略图)} alt="服飾" className="h-12 w-10 shrink-0 rounded-lg object-cover" />
+                      </button>
+                      <div className="flex min-h-12 min-w-0 flex-1 flex-col justify-between gap-1">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="shrink-0 text-[11px] text-muted-foreground">服飾</span>
+                          <Link to="/dressup" search={{ subject: dressup?.subject ?? '' }} className="shrink-0 text-[11px] text-primary hover:underline">調整</Link>
+                        </div>
+                        <div className="line-clamp-2 text-xs font-medium leading-snug" title={resolvedDressup.costume.服装名称}>
+                          {resolvedDressup.costume.服装名称}
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <Link to="/dressup" search={{ subject: dressup?.subject ?? '' }} className="flex min-h-12 min-w-0 flex-1 items-center gap-2 rounded-lg text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">
+                      <div className="flex h-10 w-8 shrink-0 items-center justify-center rounded-lg bg-muted"><ShirtIcon className="size-4" /></div>
+                      <span className="truncate text-xs">+ 選裝飾</span>
+                    </Link>
+                  )}
+                </div>
+
+                {/* 姿勢槽（與原版共用） */}
+                <div className="relative flex min-w-0 flex-wrap items-start gap-2.5 rounded-xl bg-background p-2.5">
+                  {recipe.pose ? (
+                    <>
+                      <button type="button" aria-label="放大姿势参考图" className="shrink-0 cursor-zoom-in overflow-hidden rounded-lg transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-ring" onClick={() => { const item = recipe.pose; if (item) openZoom(referenceImageUrl(poseImagePath(item)), { filename: `${timestampForFilename()}_姿勢_${sanitizeFilename(item.角度 ? `${item.姿势名称}·${item.角度}` : item.姿势名称)}.${fileExtension(poseImagePath(item), 'png')}`, title: '姿勢 · 参考图' }) }}>
+                        <img src={referenceImageUrl(poseThumbPath(recipe.pose))} alt={recipe.pose.姿势名称} className="h-12 w-10 shrink-0 rounded-lg object-cover" />
+                      </button>
+                      <div className="flex min-h-12 min-w-0 flex-1 flex-col justify-between gap-1">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="shrink-0 text-[11px] text-muted-foreground">姿势</span>
+                          <button type="button" aria-label="清除姿势参考图" onClick={() => setPose(null)} className="-mr-0.5 -mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"><XIcon className="size-3.5" /></button>
+                        </div>
+                        <div className="line-clamp-2 text-xs font-medium leading-snug" title={recipe.pose.角度 ? `${recipe.pose.姿势名称} · ${recipe.pose.角度}` : recipe.pose.姿势名称}>{recipe.pose.角度 ? `${recipe.pose.姿势名称} · ${recipe.pose.角度}` : recipe.pose.姿势名称}</div>
+                      </div>
+                    </>
+                  ) : (
+                    <Link to="/poses" className="flex min-h-12 min-w-0 flex-1 items-center gap-2 rounded-lg text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">
+                      <div className="flex h-10 w-8 shrink-0 items-center justify-center rounded-lg bg-muted"><PersonStandingIcon className="size-4" /></div>
+                      <span className="truncate text-xs">+ 选姿势</span>
+                    </Link>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* 3 个核心图库槽位：手机端单列舒展展示，平板/桌面端三列并排 */}
+            {!isDressup && (
             <div className="grid min-w-0 grid-cols-1 gap-2 @min-[42rem]/section:grid-cols-3">
               {/* 人像槽 */}
               <div className={`relative flex min-w-0 flex-wrap items-start gap-2.5 rounded-xl bg-background p-2.5 ${showReferenceErrors && missingReferences.includes('人像') ? 'ring-1 ring-destructive' : ''}`}>
@@ -491,7 +619,7 @@ function StudioPage() {
                   <>
                     <button type="button" aria-label="放大人像参考图" className="shrink-0 cursor-zoom-in overflow-hidden rounded-lg transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-ring" onClick={() => {
                       const item = recipe.portrait
-                      if (item) setZoomImageUrl(referenceImageUrl(item.原图 || item.缩略图))
+                      if (item) openZoom(referenceImageUrl(item.原图 || item.缩略图), { filename: `${timestampForFilename()}_人像_${sanitizeFilename(item.发型名称 || item.标题)}.${fileExtension(item.原图 || item.缩略图, 'webp')}`, title: '人像 · 参考图' })
                     }}>
                       <img
                         src={referenceImageUrl(recipe.portrait.缩略图)}
@@ -542,7 +670,7 @@ function StudioPage() {
                   <>
                     <button type="button" aria-label="放大服装参考图" className="shrink-0 cursor-zoom-in overflow-hidden rounded-lg transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-ring" onClick={() => {
                       const item = recipe.costume
-                      if (item) setZoomImageUrl(referenceImageUrl(item.预览图 || item.原图 || item.缩略图))
+                      if (item) openZoom(referenceImageUrl(item.预览图 || item.原图 || item.缩略图), { filename: `${timestampForFilename()}_服裝_${sanitizeFilename(item.服装名称)}.${fileExtension(item.预览图 || item.原图 || item.缩略图, 'webp')}`, title: '服裝 · 参考图' })
                     }}>
                       <img
                         src={referenceImageUrl(recipe.costume.缩略图)}
@@ -603,7 +731,7 @@ function StudioPage() {
                   <>
                     <button type="button" aria-label="放大姿势参考图" className="shrink-0 cursor-zoom-in overflow-hidden rounded-lg transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-ring" onClick={() => {
                       const item = recipe.pose
-                      if (item) setZoomImageUrl(referenceImageUrl(poseImagePath(item)))
+                      if (item) openZoom(referenceImageUrl(poseImagePath(item)), { filename: `${timestampForFilename()}_姿勢_${sanitizeFilename(item.角度 ? `${item.姿势名称}·${item.角度}` : item.姿势名称)}.${fileExtension(poseImagePath(item), 'png')}`, title: '姿勢 · 参考图' })
                     }}>
                       <img
                         src={referenceImageUrl(poseThumbPath(recipe.pose))}
@@ -687,6 +815,7 @@ function StudioPage() {
                 {randomControls('pose', '姿势')}
               </div>
             </div>
+            )}
 
             {/* 附加参考图列表 + 可视化拖拽/粘贴上传框 */}
             <div className="space-y-2 pt-1">
@@ -1056,7 +1185,7 @@ function StudioPage() {
               </>
             )}
 
-            {activeProvider === 'comfyui' && showAdvanced && <WorkflowParameters onPreview={setZoomImageUrl} onUploadingChange={setUploadingSlot} />}
+            {activeProvider === 'comfyui' && showAdvanced && <WorkflowParameters onPreview={(url) => { setZoomImageUrl(url); setZoomImageMeta(null) }} onUploadingChange={setUploadingSlot} />}
 
             {/* 展开的高级协议专属参数 */}
             {showAdvanced && (
@@ -1515,13 +1644,13 @@ function StudioPage() {
                     {generationError}
                   </p>
                   {previewUrl && (
-                    <Button variant="ghost" size="sm" onClick={() => setZoomImageUrl(previewUrl)}>
+                    <Button variant="ghost" size="sm" onClick={() => openZoom(previewUrl, { filename: `${timestampForFilename()}_生成結果.${fileExtension(previewUrl, 'png')}`, title: '生成結果' })}>
                       查看上一张结果
                     </Button>
                   )}
                 </div>
               ) : previewUrl ? (
-                <button type="button" aria-label="放大生成结果" onClick={() => setZoomImageUrl(previewUrl)} className="cursor-zoom-in rounded-xl focus-visible:outline-2 focus-visible:outline-ring"><img src={previewUrl} alt="生成结果" className="max-h-[480px] w-auto rounded-xl object-contain transition hover:opacity-95" /></button>
+                <button type="button" aria-label="放大生成结果" onClick={() => openZoom(previewUrl, { filename: `${timestampForFilename()}_生成結果.${fileExtension(previewUrl, 'png')}`, title: '生成結果' })} className="cursor-zoom-in rounded-xl focus-visible:outline-2 focus-visible:outline-ring"><img src={previewUrl} alt="生成结果" className="max-h-[480px] w-auto rounded-xl object-contain transition hover:opacity-95" /></button>
               ) : (
                 <div className="flex flex-col items-center gap-2 text-center text-muted-foreground">
                   <SparklesIcon className="size-7 opacity-35" />
@@ -1558,7 +1687,7 @@ function StudioPage() {
               className="group flex flex-col justify-between overflow-hidden rounded-2xl bg-background p-2"
             >
               <div className="relative aspect-3/4 overflow-hidden rounded-xl bg-muted">
-                <button type="button" aria-label={`查看生成记录：${h.recipeSummary}`} onClick={() => setZoomImageUrl(h.imageUrl)} className="block h-full w-full cursor-zoom-in focus-visible:outline-2 focus-visible:outline-ring">
+                <button type="button" aria-label={`查看生成记录：${h.recipeSummary}`} onClick={() => openZoom(h.imageUrl, { filename: `${timestampForFilename()}_生成結果_${sanitizeFilename(h.recipeSummary)}.${fileExtension(h.imageUrl, 'png')}`, title: '生成結果' })} className="block h-full w-full cursor-zoom-in focus-visible:outline-2 focus-visible:outline-ring">
                 <img
                   src={h.imageUrl}
                   alt={h.recipeSummary}
@@ -1611,7 +1740,7 @@ function StudioPage() {
 
       <ReferenceComparisonDialog result={comparisonResult} open={comparisonResult !== null} onOpenChange={(open) => !open && setComparisonResult(null)} />
       {/* 生成结果全屏放大灯箱 */}
-      <ImageViewer imageUrl={zoomImageUrl || ''} open={Boolean(zoomImageUrl)} onOpenChange={(open) => !open && setZoomImageUrl(null)} />
+      <ImageViewer imageUrl={zoomImageUrl || ''} downloadName={zoomImageMeta?.filename} title={zoomImageMeta?.title ?? '图片大图预览'} open={Boolean(zoomImageUrl)} onOpenChange={(open) => !open && setZoomImageUrl(null)} />
 
       {/* 参考拼图独立弹窗（不占用主画布） */}
       <Dialog open={Boolean(stitchModalUrl)} onOpenChange={(o) => !o && setStitchModalUrl(null)}>

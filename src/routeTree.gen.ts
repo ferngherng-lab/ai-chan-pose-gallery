@@ -12,7 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CharactersRouteImport } from './routes/characters'
 import { Route as CostumesRouteImport } from './routes/costumes'
+import { Route as DressupRouteImport } from './routes/dressup'
 import { Route as GuideRouteImport } from './routes/guide'
+import { Route as LegacyRouteImport } from './routes/legacy'
 import { Route as OutfitsRouteImport } from './routes/outfits'
 import { Route as PortraitsRouteImport } from './routes/portraits'
 import { Route as PosesRouteImport } from './routes/poses'
@@ -34,9 +36,19 @@ const CostumesRoute = CostumesRouteImport.update({
   path: '/costumes',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DressupRoute = DressupRouteImport.update({
+  id: '/dressup',
+  path: '/dressup',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GuideRoute = GuideRouteImport.update({
   id: '/guide',
   path: '/guide',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegacyRoute = LegacyRouteImport.update({
+  id: '/legacy',
+  path: '/legacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OutfitsRoute = OutfitsRouteImport.update({
@@ -69,7 +81,9 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/characters': typeof CharactersRoute
   '/costumes': typeof CostumesRoute
+  '/dressup': typeof DressupRoute
   '/guide': typeof GuideRoute
+  '/legacy': typeof LegacyRoute
   '/outfits': typeof OutfitsRoute
   '/portraits': typeof PortraitsRoute
   '/poses': typeof PosesRoute
@@ -80,7 +94,9 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/characters': typeof CharactersRoute
   '/costumes': typeof CostumesRoute
+  '/dressup': typeof DressupRoute
   '/guide': typeof GuideRoute
+  '/legacy': typeof LegacyRoute
   '/outfits': typeof OutfitsRoute
   '/portraits': typeof PortraitsRoute
   '/poses': typeof PosesRoute
@@ -92,7 +108,9 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/characters': typeof CharactersRoute
   '/costumes': typeof CostumesRoute
+  '/dressup': typeof DressupRoute
   '/guide': typeof GuideRoute
+  '/legacy': typeof LegacyRoute
   '/outfits': typeof OutfitsRoute
   '/portraits': typeof PortraitsRoute
   '/poses': typeof PosesRoute
@@ -105,7 +123,9 @@ export interface FileRouteTypes {
     | '/'
     | '/characters'
     | '/costumes'
+    | '/dressup'
     | '/guide'
+    | '/legacy'
     | '/outfits'
     | '/portraits'
     | '/poses'
@@ -116,7 +136,9 @@ export interface FileRouteTypes {
     | '/'
     | '/characters'
     | '/costumes'
+    | '/dressup'
     | '/guide'
+    | '/legacy'
     | '/outfits'
     | '/portraits'
     | '/poses'
@@ -127,7 +149,9 @@ export interface FileRouteTypes {
     | '/'
     | '/characters'
     | '/costumes'
+    | '/dressup'
     | '/guide'
+    | '/legacy'
     | '/outfits'
     | '/portraits'
     | '/poses'
@@ -139,7 +163,9 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CharactersRoute: typeof CharactersRoute
   CostumesRoute: typeof CostumesRoute
+  DressupRoute: typeof DressupRoute
   GuideRoute: typeof GuideRoute
+  LegacyRoute: typeof LegacyRoute
   OutfitsRoute: typeof OutfitsRoute
   PortraitsRoute: typeof PortraitsRoute
   PosesRoute: typeof PosesRoute
@@ -170,11 +196,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CostumesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dressup': {
+      id: '/dressup'
+      path: '/dressup'
+      fullPath: '/dressup'
+      preLoaderRoute: typeof DressupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/guide': {
       id: '/guide'
       path: '/guide'
       fullPath: '/guide'
       preLoaderRoute: typeof GuideRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legacy': {
+      id: '/legacy'
+      path: '/legacy'
+      fullPath: '/legacy'
+      preLoaderRoute: typeof LegacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/outfits': {
@@ -219,7 +259,9 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CharactersRoute: CharactersRoute,
   CostumesRoute: CostumesRoute,
+  DressupRoute: DressupRoute,
   GuideRoute: GuideRoute,
+  LegacyRoute: LegacyRoute,
   OutfitsRoute: OutfitsRoute,
   PortraitsRoute: PortraitsRoute,
   PosesRoute: PosesRoute,
