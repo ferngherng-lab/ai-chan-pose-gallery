@@ -80,7 +80,8 @@ export function buildInitialDressup(
   costumes: CostumeItem[],
   portraits: PortraitItem[],
   inherent: AichanInherent,
-  taxonomy: AichanSlotTaxonomy
+  taxonomy: AichanSlotTaxonomy,
+  opts?: { threeViewOn?: boolean }
 ): DressupState {
   const { parts, optional, hair } = subjectInherentItems(key, costumes, inherent)
   const views = subjectViews(key, portraits)
@@ -96,6 +97,8 @@ export function buildInitialDressup(
     wingsOn: optional.length > 0,
     hair,
     hairOn: hair.length > 0,
+    threeViewOn: opts?.threeViewOn ?? true,
+    expressionOn: true,
     slots,
   }
 }

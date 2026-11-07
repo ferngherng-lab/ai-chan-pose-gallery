@@ -137,6 +137,10 @@ export interface DressupState {
   hair: CostumeItem[]
   /** 髮型開關：false 時不渲染、提示詞不提 */
   hairOn: boolean
+  /** 三視圖開關：true＝三視圖鎖定（用所選視角，含側/背），false＝只用正面 */
+  threeViewOn: boolean
+  /** 表情開關：true＝套用表情，false＝無表情 */
+  expressionOn: boolean
   /** 14 槽位自上而下，每槽 0..n 件（可留空 / 可混搭多來源） */
   slots: DressupSlotSelection[]
 }

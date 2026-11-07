@@ -284,6 +284,39 @@ function DressupPage() {
         <Button variant="destructive" size="sm" className="h-8" onClick={clearAll}>
           <Trash2Icon className="size-3.5" /> 一鍵清空裝飾
         </Button>
+        <div className="flex flex-wrap items-center gap-1.5 rounded-lg bg-background px-2 py-1">
+          <span className="shrink-0 text-[10px] text-muted-foreground">開關</span>
+          {dressup.wings.length > 0 && (
+            <label className="flex shrink-0 cursor-pointer items-center gap-1 text-[11px]">
+              <Switch checked={dressup.wingsOn} onCheckedChange={(v) => update({ wingsOn: v })} />
+              翅膀
+            </label>
+          )}
+          {dressup.hair.length > 0 && (
+            <label className="flex shrink-0 cursor-pointer items-center gap-1 text-[11px]">
+              <Switch checked={dressup.hairOn} onCheckedChange={(v) => update({ hairOn: v })} />
+              頭髮
+            </label>
+          )}
+          {subjectViewsList.length > 0 && (
+            <label className="flex shrink-0 cursor-pointer items-center gap-1 text-[11px]">
+              <Switch
+                checked={dressup.threeViewOn}
+                onCheckedChange={(v) => update(v ? { threeViewOn: true } : { threeViewOn: false, subjectView: pickFrontView(subjectViewsList) })}
+              />
+              三視圖
+            </label>
+          )}
+          {subjectExpressionsList.length > 0 && (
+            <label className="flex shrink-0 cursor-pointer items-center gap-1 text-[11px]">
+              <Switch
+                checked={dressup.expressionOn}
+                onCheckedChange={(v) => update(v ? { expressionOn: true, expression: dressup.expression ?? subjectExpressionsList[0] ?? null } : { expressionOn: false, expression: null })}
+              />
+              表情
+            </label>
+          )}
+        </div>
         <div className="ml-auto flex items-center gap-2">
           {generationProgress && <span className="max-w-40 truncate text-xs text-muted-foreground">{generationProgress.message}</span>}
           {generationError && <span className="max-w-40 truncate text-xs text-destructive">{generationError}</span>}
@@ -304,9 +337,9 @@ function DressupPage() {
             </Button>
           </div>
 
-          {subjectViewsList.length > 0 && (
+          {subjectViewsList.length > 0 && dressup.threeViewOn && (
             <div className="flex flex-wrap items-end gap-1.5">
-              <span className="mb-1 shrink-0 text-[11px] text-muted-foreground">三视图</span>
+              <span className="mb-1 shrink-0 text-[11px] text-muted-foreground">三視圖</span>
               {subjectViewsList.map((v) => (
                 <SelectThumb key={v.id} src={v.缩略图} label={viewLabel(v)} active={dressup.subjectView?.id === v.id} onClick={() => update({ subjectView: v })} size={showExpressions ? 'w-24' : 'w-40'} />
               ))}
@@ -315,18 +348,6 @@ function DressupPage() {
 
           <div className="flex flex-wrap items-end gap-1.5">
             <span className="mb-1 shrink-0 text-[11px] text-muted-foreground">固有</span>
-            {dressup.wings.length > 0 && (
-              <label className="mb-1 mr-1 flex shrink-0 items-center gap-1 text-[11px]">
-                <Switch checked={dressup.wingsOn} onCheckedChange={(v) => update({ wingsOn: v })} />
-                翼
-              </label>
-            )}
-            {dressup.hair.length > 0 && (
-              <label className="mb-1 mr-1 flex shrink-0 items-center gap-1 text-[11px]">
-                <Switch checked={dressup.hairOn} onCheckedChange={(v) => update({ hairOn: v })} />
-                髮
-              </label>
-            )}
             {[...dressup.inherent, ...(dressup.wingsOn ? dressup.wings : []), ...(dressup.hairOn ? dressup.hair : [])].map((i) => (
               <Thumb key={i.id} src={i.缩略图} label={i.服装名称} />
             ))}
@@ -335,7 +356,7 @@ function DressupPage() {
             )}
           </div>
 
-          {subjectExpressionsList.length > 0 && (
+          {subjectExpressionsList.length > 0 && dressup.expressionOn && (
             <div className="flex flex-wrap items-end gap-1.5">
               <label className="mb-1 flex shrink-0 cursor-pointer items-center gap-1.5 text-[11px] font-medium">
                 <Switch checked={showExpressions} onCheckedChange={setShowExpressions} />

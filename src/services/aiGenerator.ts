@@ -415,7 +415,8 @@ function buildDressupPrompt(recipe: RecipeState, stylePreset: string, workflowIm
   let costumeIdx = 0
 
   const fixed = [...dressup.inherent, ...(dressup.wingsOn ? dressup.wings : []), ...(dressup.hairOn ? dressup.hair : [])]
-  const hasPortrait = Boolean(dressup.subjectView || dressup.expression || fixed.length)
+  const expression = dressup.expressionOn ? dressup.expression : null
+  const hasPortrait = Boolean(dressup.subjectView || expression || fixed.length)
   const decorations = dressup.slots.flatMap((s) => s.items)
   const hasCostume = decorations.length > 0
   const faceless = !hasPortrait && !workflowImages.some((image) => image.role === 'character_sheet') && hasCostume && Boolean(recipe.pose)
@@ -429,7 +430,7 @@ function buildDressupPrompt(recipe: RecipeState, stylePreset: string, workflowIm
     const skin = '人物的肤色必须与图一人物一致，所有裸露皮肤（包括服装镂空处露出的皮肤）必须与脸部肤色统一，统一后的肤色与质感按风格要求呈现。'
     const cname = dressup.subjectView?.角色名 || dressup.subjectView?.发长
     const parts: string[] = []
-    if (dressup.expression) parts.push(`表情：${dressup.expression.发型名称 || dressup.expression.标题}`)
+    if (expression) parts.push(`表情：${expression.发型名称 || expression.标题}`)
     const inherentClause = buildInherentClause(fixed.map((i) => i.服装名称))
     clauses.push(
       `• 角色：以图${idx}中的角色为原型，保持其脸型、五官、发型、发色与肤色一致${cname ? `（角色：${cname}）` : ''}${parts.length ? `（${parts.join('；')}）` : ''}。${skin}${inherentClause}图${idx}只确定角色本体（肉体）。`
@@ -718,17 +719,18 @@ export async function resolveSubfieldRecipe(recipe: RecipeState): Promise<Recipe
 // 換裝：把 DressupState 編譯為既有 3 圖模型（形象圖 = 主體三视图 + 固有 + 表情；服飾圖 = 選中裝飾）
 async function resolveDressupPortraitImage(dressup: DressupState): Promise<PortraitItem | null | undefined> {
   const fixed = [...dressup.inherent, ...(dressup.wingsOn ? dressup.wings : []), ...(dressup.hairOn ? dressup.hair : [])]
-  if (!dressup.subjectView && !dressup.expression && fixed.length === 0) return undefined
+  const expression = dressup.expressionOn ? dressup.expression : null
+  if (!dressup.subjectView && !expression && fixed.length === 0) return undefined
   const parts: Array<{ tag: string; sub: string; src: string }> = [
     ...(dressup.subjectView
       ? [{ tag: '主體', sub: dressup.subjectView.发型名称 || dressup.subjectView.标题, src: dressup.subjectView.原图 || dressup.subjectView.缩略图 }]
       : []),
-    ...(dressup.expression
-      ? [{ tag: '表情', sub: dressup.expression.发型名称 || dressup.expression.标题, src: dressup.expression.原图 || dressup.expression.缩略图 }]
+    ...(expression
+      ? [{ tag: '表情', sub: expression.发型名称 || expression.标题, src: expression.原图 || expression.缩略图 }]
       : []),
     ...fixed.map((i) => ({ tag: '固有', sub: i.服装名称, src: i.预览图 || i.原图 || i.缩略图 })),
   ]
-  const anchor = dressup.subjectView ?? dressup.expression ?? costumeToPortraitAnchor(fixed[0])
+  const anchor = dressup.subjectView ?? expression ?? costumeToPortraitAnchor(fixed[0])
   if (!anchor) return null
   const src = await stitchCards(parts)
   return { ...anchor, 原图: src, 缩略图: src }
